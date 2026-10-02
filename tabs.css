@@ -1,0 +1,142 @@
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  max-width: 900px;
+  margin: 0 auto;
+  font-family: system-ui, sans-serif;
+}
+
+details {
+  margin-bottom: 4em;
+}
+
+summary {
+  cursor: pointer;
+}
+
+summary h2 {
+  display: inline;
+}
+
+h1 {
+  font-size: 250%;
+}
+
+h2 {
+  font-size: 200%;
+  font-weight: normal;
+  color: light-dark(#333, #ddd);
+}
+
+.tabs-list ul,
+ul.tabs-list {
+  margin: 0;
+  padding: 0;
+}
+
+.tabs-list li {
+  list-style: none;
+  padding: 8px;
+  margin-left: -8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1em;
+}
+
+.tab-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tabs-list li.deleted-tab {
+  cursor: default;
+}
+
+.deleted-tab .close-tab {
+  visibility: hidden;
+}
+
+.deleted-tab {
+  opacity: 0.33;
+  background-color: light-dark(#ffdddd, #5a2a2a);
+}
+
+.tabs-list li:not(.deleted-tab):hover {
+  background-color: light-dark(#ddffdd, #234a23);
+}
+
+.tabs-list p {
+  margin: 0;
+}
+
+.tab-title {
+  font-size: 120%;
+  font-weight: bold;
+  padding-bottom: 4px;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  
+  color: light-dark(#333, #ddd);
+}
+
+.tab-url {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: light-dark(#666, #aaa);
+}
+
+.tab-container {
+  display: inline-block;
+  margin-right: 0.5em;
+  padding: 0 0.4em;
+  border-radius: 3px;
+  font-size: 75%;
+  font-weight: normal;
+  vertical-align: middle;
+  color: #fff;
+  background-color: var(--container-color);
+}
+
+.host-group {
+  margin: 1.5em 0 0;
+}
+
+.host-header {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-left: -8px;
+  padding: 8px;
+  overflow-wrap: anywhere;
+  background-color: light-dark(#e8eef8, #26303d);
+}
+
+/* Flex summaries lose the native marker. */
+.host-header::before {
+  content: "▸";
+}
+
+.host-group[open] > .host-header::before {
+  content: "▾";
+}
+
+.host-header h3 {
+  flex: 1;
+  margin: 0;
+}
+
+.close-tab {
+  font-size: 110%;
+  padding: 0.5em 1.25em;
+  cursor: pointer;
+}
+
+.count {
+  color: light-dark(#666, #aaa);
+}

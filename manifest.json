@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "List All Tabs",
+  "version": "1.0",
+  "description": "List tabs, find duplicates, and close them.",
+  "homepage_url": "https://github.com/zachleat/list-all-tabs",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "list-all-tabs-fork@zachleat",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "tabs",
+    "contextualIdentities"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "action": {
+    "default_title": "List All Tabs"
+  }
+}
