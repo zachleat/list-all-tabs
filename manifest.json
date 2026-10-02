@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "List All Tabs",
-  "version": "1.1",
+  "version": "1.2",
   "description": "List tabs, find duplicates, and close them.",
   "homepage_url": "https://github.com/zachleat/list-all-tabs",
   "browser_specific_settings": {
