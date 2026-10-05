@@ -10,18 +10,26 @@
 <body>
   <h1>List all tabs</h1>
 
+  <label class="sort">Sort tabs by
+    <select id="sort">
+      <option value="order">Tab order</option>
+      <option value="oldest">Least recently used</option>
+      <option value="newest">Most recently used</option>
+    </select>
+  </label>
+
   <details id="all-tabs">
-  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span>)</span></h2></summary>
+  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span> <span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
   <div id="all-tabs-list" class="tabs-list"></div>
   </details>
 
   <details id="dupes" open>
-  <summary><h2>Duplicate tabs <span class="count">(<span data-count-of="#dupes-tabs-list li"></span>)</span></h2></summary>
+  <summary><h2>Duplicate tabs <span class="count">(<span data-count-of="#dupes-tabs-list li"></span> <span data-count-of="#dupes-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#dupes-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
   <div id="dupes-tabs-list" class="tabs-list"></div>
   </details>
 
   <details id="top-hosts" open>
-  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span>)</span></h2></summary>
+  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span> <span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
   <div id="top-hosts-list"></div>
   </details>
 

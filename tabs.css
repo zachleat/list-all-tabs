@@ -3,7 +3,7 @@
 }
 
 body {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
   font-family: system-ui, sans-serif;
 }
@@ -55,8 +55,16 @@ ul.tabs-list {
   cursor: default;
 }
 
-.deleted-tab .close-tab {
+.deleted-tab .close-tab,
+.deleted-tab .unload-tab,
+.discarded-tab .unload-tab,
+.active-tab .unload-tab,
+.pinned-tab button {
   visibility: hidden;
+}
+
+.pinned-tab {
+  opacity: 0.6;
 }
 
 .deleted-tab {
@@ -89,6 +97,33 @@ ul.tabs-list {
   white-space: nowrap;
   text-overflow: ellipsis;
   color: light-dark(#666, #aaa);
+}
+
+.tab-accessed {
+  white-space: nowrap;
+  color: light-dark(#666, #aaa);
+}
+
+.sort {
+  display: block;
+  margin-bottom: 2em;
+}
+
+.tab-badge {
+  display: none;
+  margin-right: 0.5em;
+  padding: 0 0.4em;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 75%;
+  font-weight: normal;
+  vertical-align: middle;
+  color: light-dark(#666, #aaa);
+}
+
+.pinned-tab .tab-pinned,
+.discarded-tab .tab-unloaded {
+  display: inline-block;
 }
 
 .tab-container {
@@ -131,10 +166,30 @@ ul.tabs-list {
   margin: 0;
 }
 
-.close-tab {
+.discarded-tab .tab-title {
+  font-weight: normal;
+}
+
+.close-tab,
+.unload-tab,
+.unload-all,
+.move-all {
   font-size: 110%;
   padding: 0.5em 1.25em;
   cursor: pointer;
+}
+
+/* Separator lives here so it hides with the count. */
+[data-count-hide-zero]::before {
+  content: " ";
+}
+
+[data-count-icon="●"] .count-icon {
+  color: light-dark(#1a8a1a, #5c5);
+}
+
+[data-count-icon="○"] .count-icon {
+  color: light-dark(#c60, #fa5);
 }
 
 .count {

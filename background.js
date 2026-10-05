@@ -2,7 +2,7 @@ browser.action.setBadgeBackgroundColor({ color: "green" });
 
 // Recount instead of incrementing so the badge never drifts.
 function updateBadge() {
-  browser.tabs.query({}).then((tabs) => {
+  browser.tabs.query({ discarded: false }).then((tabs) => {
     browser.action.setBadgeText({ text: tabs.length.toString() });
   });
 }
@@ -11,6 +11,7 @@ updateBadge();
 browser.tabs.onCreated.addListener(updateBadge);
 // onRemoved fires before the tab leaves query results.
 browser.tabs.onRemoved.addListener(() => setTimeout(updateBadge, 100));
+browser.tabs.onUpdated.addListener(updateBadge, { properties: ["discarded"] });
 
 function handleClick() {
   let url = browser.runtime.getURL("tabs.html");

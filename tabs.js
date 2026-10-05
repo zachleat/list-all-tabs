@@ -24,8 +24,20 @@ function updateTabsLists() {
     let collapsedHosts = new Set(
       [...document.querySelectorAll(".host-group:not([open])")].map((group) => group.dataset.host)
     );
+    // Hosts already listed stay listed until their last tab closes.
+    let shownHosts = new Set(
+      [...document.querySelectorAll(".host-group")].map((group) => group.dataset.host)
+    );
 
     tabs.reverse();
+    let sort = document.getElementById("sort").value;
+    if (sort == "oldest") {
+      tabs.sort((a, b) => a.lastAccessed - b.lastAccessed);
+    } else if (sort == "newest") {
+      tabs.sort((a, b) => b.lastAccessed - a.lastAccessed);
+    }
+    // Stable sort keeps the chosen order within pinned and unpinned tabs.
+    tabs.sort((a, b) => a.pinned - b.pinned);
 
     let allTabsList = document.createElement("ul");
 
@@ -51,12 +63,13 @@ function updateTabsLists() {
       }
     }
     document.getElementById("dupes-tabs-list").replaceChildren(dupesList);
+    document.getElementById("dupes").hidden = !dupesList.childElementCount;
 
     let topHostsList = document.getElementById("top-hosts-list");
     topHostsList.replaceChildren();
     for (let host of topHosts) {
-      if (hosts[host].length < 2) {
-        break;
+      if (hosts[host].length < 2 && !shownHosts.has(host)) {
+        continue;
       }
 
       let tabList = document.createElement("ul");
@@ -71,8 +84,27 @@ function updateTabsLists() {
       count.className = "count";
       let countValue = document.createElement("span");
       countValue.dataset.countOf = "li";
-      count.append("(", countValue, ")");
+      let loadedCount = document.createElement("span");
+      loadedCount.dataset.countOf = "li:not(.discarded-tab)";
+      loadedCount.dataset.countIcon = "●";
+      loadedCount.title = "Loaded tabs";
+      let unloadedCount = document.createElement("span");
+      unloadedCount.dataset.countOf = "li.discarded-tab";
+      unloadedCount.dataset.countIcon = "○";
+      unloadedCount.title = "Unloaded tabs";
+      unloadedCount.dataset.countHideZero = "";
+      count.append("(", countValue, " ", loadedCount, unloadedCount, ")");
       h3.appendChild(count);
+      let unloadAll = document.createElement("button");
+      unloadAll.className = "unload-all";
+      unloadAll.textContent = "Unload all";
+      let moveAll = document.createElement("button");
+      moveAll.className = "move-all";
+      moveAll.textContent = "Consolidate in one window";
+      moveAll.addEventListener("click", (e) => {
+        e.preventDefault();
+        moveGroup(tabList);
+      });
       let closeAll = document.createElement("button");
       closeAll.className = "close-tab";
       closeAll.textContent = "Close all";
@@ -84,6 +116,8 @@ function updateTabsLists() {
       let summary = document.createElement("summary");
       summary.className = "host-header";
       summary.appendChild(h3);
+      summary.appendChild(moveAll);
+      summary.appendChild(unloadAll);
       summary.appendChild(closeAll);
 
       let group = document.createElement("details");
@@ -104,13 +138,24 @@ function updateCounts() {
   for (let count of document.querySelectorAll("[data-count-of]")) {
     let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab)`);
     let unit = count.dataset.countUnit;
-    count.textContent = unit ? `${items.length} ${unit}${items.length == 1 ? "" : "s"}` : items.length;
+    let icon = count.dataset.countIcon;
+    count.hidden = "countHideZero" in count.dataset && items.length == 0;
+    if (unit) {
+      count.textContent = `${items.length} ${unit}${items.length == 1 ? "" : "s"}`;
+    } else if (icon) {
+      let iconSpan = document.createElement("span");
+      iconSpan.className = "count-icon";
+      iconSpan.textContent = icon;
+      count.replaceChildren(iconSpan, ` ${items.length}`);
+    } else {
+      count.textContent = items.length;
+    }
   }
 }
 
 function closeGroup(name, tabList) {
   browser.tabs.getCurrent().then((self) => {
-    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab)")]
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
     let noun = tabIds.length == 1 ? "tab" : "tabs";
@@ -120,15 +165,47 @@ function closeGroup(name, tabList) {
   });
 }
 
+function moveGroup(tabList) {
+  browser.tabs.getCurrent().then((self) => {
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab)")]
+      .map((li) => +li.getAttribute("data-tabid"))
+      .filter((id) => id != self?.id);
+    if (tabIds.length == 0) {
+      return;
+    }
+    // The blank tab stays showing so no moved tab has to load.
+    browser.windows.create({ url: "about:blank" }).then((win) => {
+      browser.tabs.move(tabIds, { windowId: win.id, index: -1 });
+    });
+  });
+}
+
+// Unloads every open tab in the button's section; Firefox skips active tabs.
+function unloadGroup(button) {
+  let tabIds = [...button.closest("details").querySelectorAll("li:not(.deleted-tab, .discarded-tab, .pinned-tab)")]
+    .map((li) => +li.getAttribute("data-tabid"));
+  browser.tabs.discard([...new Set(tabIds)]);
+}
+
 document.addEventListener("click", (e) => {
+  let unloadAll = e.target.closest(".unload-all");
+  if (unloadAll) {
+    // Keep the button from toggling the section.
+    e.preventDefault();
+    unloadGroup(unloadAll);
+    return;
+  }
   let elt = e.target.closest(".tabs-list li");
-  if (elt == null || elt.classList.contains("deleted-tab")) {
+  if (elt == null || elt.classList.contains("deleted-tab") || e.target.closest("button:disabled")) {
     return;
   }
   let tabId = +elt.getAttribute("data-tabid");
   if (e.target.closest(".close-tab")) {
     // The onRemoved handler marks the tab as deleted.
     browser.tabs.remove(tabId);
+  } else if (e.target.closest(".unload-tab")) {
+    // The onUpdated handler marks the tab as discarded.
+    browser.tabs.discard(tabId);
   } else {
     browser.tabs.update(tabId, { active: true }).then((tab) => {
       browser.windows.update(tab.windowId, { focused: true });
@@ -139,6 +216,8 @@ document.addEventListener("click", (e) => {
 function renderTabItem(tab) {
   var li = document.createElement("li");
   li.setAttribute("data-tabid", tab.id);
+  li.classList.toggle("discarded-tab", tab.discarded);
+  li.classList.toggle("active-tab", tab.active);
   var pTitle = document.createElement("p");
   pTitle.classList.add("tab-title");
   let container = containers[tab.cookieStoreId];
@@ -148,6 +227,13 @@ function renderTabItem(tab) {
     label.style.setProperty("--container-color", container.colorCode);
     label.textContent = container.name;
     pTitle.appendChild(label);
+  }
+  // Shown by CSS while the tab is pinned or discarded.
+  for (let [className, text] of [["tab-pinned", "Pinned"], ["tab-unloaded", "Unloaded"]]) {
+    let badge = document.createElement("span");
+    badge.classList.add("tab-badge", className);
+    badge.textContent = text;
+    pTitle.appendChild(badge);
   }
   var titleText = document.createElement("span");
   titleText.classList.add("tab-title-text");
@@ -160,12 +246,43 @@ function renderTabItem(tab) {
   info.classList.add("tab-info");
   info.appendChild(pTitle);
   info.appendChild(pURL);
+  var accessed = document.createElement("time");
+  accessed.classList.add("tab-accessed");
+  accessed.dateTime = new Date(tab.lastAccessed).toISOString();
+  accessed.title = new Date(tab.lastAccessed).toLocaleString();
+  accessed.textContent = formatAgo(tab.lastAccessed);
+  var unload = document.createElement("button");
+  unload.classList.add("unload-tab");
+  unload.textContent = "Unload";
   var close = document.createElement("button");
   close.classList.add("close-tab");
   close.textContent = "Close";
   li.appendChild(info);
+  li.appendChild(accessed);
+  li.appendChild(unload);
   li.appendChild(close);
+  setPinned(li, tab.pinned);
   return li;
+}
+
+// Pinned tabs can't be closed, unloaded, or moved from here.
+function setPinned(li, pinned) {
+  li.classList.toggle("pinned-tab", pinned);
+  for (let button of li.querySelectorAll("button")) {
+    button.disabled = pinned;
+  }
+}
+
+var relativeTime = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+var timeUnits = [["year", 31536e6], ["month", 2592e6], ["week", 6048e5], ["day", 864e5], ["hour", 36e5], ["minute", 6e4]];
+function formatAgo(timestamp) {
+  let elapsed = Date.now() - timestamp;
+  for (let [unit, ms] of timeUnits) {
+    if (elapsed >= ms) {
+      return relativeTime.format(-Math.floor(elapsed / ms), unit);
+    }
+  }
+  return "just now";
 }
 
 function tabItems(tabId) {
@@ -179,7 +296,19 @@ function scheduleRender() {
   renderTimer = setTimeout(updateTabsLists, 250);
 }
 
-document.addEventListener("DOMContentLoaded", updateTabsLists);
+document.addEventListener("DOMContentLoaded", () => {
+  let sort = document.getElementById("sort");
+  try {
+    sort.value = localStorage.getItem("sort") || sort.value;
+  } catch {}
+  sort.addEventListener("change", () => {
+    try {
+      localStorage.setItem("sort", sort.value);
+    } catch {}
+    updateTabsLists();
+  });
+  updateTabsLists();
+});
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState == "visible") {
@@ -196,13 +325,26 @@ browser.tabs.onRemoved.addListener((tabId) => {
 
 browser.tabs.onCreated.addListener(scheduleRender);
 
+// Firefox can't discard the tab showing in each window.
+browser.tabs.onActivated.addListener(({ tabId, previousTabId }) => {
+  for (let elt of tabItems(previousTabId)) {
+    elt.classList.remove("active-tab");
+  }
+  for (let elt of tabItems(tabId)) {
+    elt.classList.add("active-tab");
+  }
+});
+
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    // A new URL can change the tab's duplicate and host groups.
+  if (changeInfo.url || changeInfo.pinned != null) {
+    // A new URL can change the tab's groups; pinning changes its position.
     scheduleRender();
     return;
   }
   for (let elt of tabItems(tabId)) {
     elt.querySelector(".tab-title-text").textContent = tab.title;
+    elt.classList.toggle("discarded-tab", tab.discarded);
+    setPinned(elt, tab.pinned);
   }
-}, { properties: ["title", "url"] });
+  updateCounts();
+}, { properties: ["title", "url", "discarded", "pinned"] });
