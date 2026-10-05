@@ -24,7 +24,12 @@
       "background.js"
     ]
   },
+  "icons": {
+    "48": "icon.svg",
+    "96": "icon.svg"
+  },
   "action": {
-    "default_title": "List All Tabs"
+    "default_title": "List All Tabs",
+    "default_icon": "icon.svg"
   }
 }

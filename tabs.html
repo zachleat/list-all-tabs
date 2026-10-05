@@ -4,19 +4,25 @@
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="tabs.css"/>
+  <link rel="icon" href="icon.svg" type="image/svg+xml"/>
   <title>List all tabs</title>
 </head>
 
 <body>
-  <h1>List all tabs</h1>
+  <h1><img src="icon.svg" alt="">List all tabs</h1>
 
-  <label class="sort">Sort tabs by
-    <select id="sort">
-      <option value="order">Tab order</option>
-      <option value="oldest">Least recently used</option>
-      <option value="newest">Most recently used</option>
-    </select>
-  </label>
+  <div class="sort">
+    <input type="search" id="filter" placeholder="Filter tabs" aria-label="Filter tabs">
+    <label>Sort tabs by
+      <select id="sort">
+        <option value="order">Tab order</option>
+        <option value="oldest">Least recently used</option>
+        <option value="newest">Most recently used</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="show-unloaded" data-hides="discarded-tab" checked> Show unloaded</label>
+    <label><input type="checkbox" id="show-pinned" data-hides="pinned-tab"> Show pinned</label>
+  </div>
 
   <details id="all-tabs">
   <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span> <span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
@@ -30,6 +36,10 @@
 
   <details id="top-hosts" open>
   <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span> <span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
+  <div class="host-toggles">
+    <button type="button" data-hosts-open="true">Expand all</button>
+    <button type="button" data-hosts-open="false">Collapse all</button>
+  </div>
   <div id="top-hosts-list"></div>
   </details>
 

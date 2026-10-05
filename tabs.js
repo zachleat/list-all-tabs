@@ -19,6 +19,7 @@ function getHost(tabUrl) {
 
 function updateTabsLists() {
   loadContainers().then(() => browser.tabs.query({})).then((tabs) => {
+    tabs = tabs.filter((tab) => !tab.url.startsWith("about:blank"));
     var dupes = {};
     var hosts = {};
     let collapsedHosts = new Set(
@@ -129,14 +130,32 @@ function updateTabsLists() {
       topHostsList.appendChild(group);
     }
 
-    updateCounts();
+    applyFilter();
   });
 }
 
-// Counts are scoped to the enclosing section; closed tabs are not counted.
+// Unchecked toggles hide their tab class; every word must appear in the title, URL, or container name.
+function applyFilter() {
+  let hiddenClasses = [...document.querySelectorAll("[data-hides]:not(:checked)")].map((box) => box.dataset.hides);
+  let words = document.getElementById("filter").value.toLowerCase().split(/\s+/).filter(Boolean);
+  for (let li of document.querySelectorAll(".tabs-list li")) {
+    let text = [".tab-title-text", ".tab-url", ".tab-container"]
+      .map((selector) => li.querySelector(selector)?.textContent ?? "")
+      .join(" ")
+      .toLowerCase();
+    let hidden = hiddenClasses.some((name) => li.classList.contains(name)) || !words.every((word) => text.includes(word));
+    li.classList.toggle("filtered-out", hidden);
+  }
+  for (let group of document.querySelectorAll(".host-group")) {
+    group.classList.toggle("filtered-out", !group.querySelector("li:not(.filtered-out)"));
+  }
+  updateCounts();
+}
+
+// Counts are scoped to the enclosing section; closed and filtered tabs are not counted.
 function updateCounts() {
   for (let count of document.querySelectorAll("[data-count-of]")) {
-    let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab)`);
+    let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab, .filtered-out)`);
     let unit = count.dataset.countUnit;
     let icon = count.dataset.countIcon;
     count.hidden = "countHideZero" in count.dataset && items.length == 0;
@@ -155,7 +174,7 @@ function updateCounts() {
 
 function closeGroup(name, tabList) {
   browser.tabs.getCurrent().then((self) => {
-    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab)")]
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
     let noun = tabIds.length == 1 ? "tab" : "tabs";
@@ -167,7 +186,7 @@ function closeGroup(name, tabList) {
 
 function moveGroup(tabList) {
   browser.tabs.getCurrent().then((self) => {
-    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab)")]
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
     if (tabIds.length == 0) {
@@ -182,12 +201,19 @@ function moveGroup(tabList) {
 
 // Unloads every open tab in the button's section; Firefox skips active tabs.
 function unloadGroup(button) {
-  let tabIds = [...button.closest("details").querySelectorAll("li:not(.deleted-tab, .discarded-tab, .pinned-tab)")]
+  let tabIds = [...button.closest("details").querySelectorAll("li:not(.deleted-tab, .discarded-tab, .pinned-tab, .filtered-out)")]
     .map((li) => +li.getAttribute("data-tabid"));
   browser.tabs.discard([...new Set(tabIds)]);
 }
 
 document.addEventListener("click", (e) => {
+  let toggle = e.target.closest("[data-hosts-open]");
+  if (toggle) {
+    for (let group of document.querySelectorAll(".host-group")) {
+      group.open = toggle.dataset.hostsOpen == "true";
+    }
+    return;
+  }
   let unloadAll = e.target.closest(".unload-all");
   if (unloadAll) {
     // Keep the button from toggling the section.
@@ -246,11 +272,6 @@ function renderTabItem(tab) {
   info.classList.add("tab-info");
   info.appendChild(pTitle);
   info.appendChild(pURL);
-  var accessed = document.createElement("time");
-  accessed.classList.add("tab-accessed");
-  accessed.dateTime = new Date(tab.lastAccessed).toISOString();
-  accessed.title = new Date(tab.lastAccessed).toLocaleString();
-  accessed.textContent = formatAgo(tab.lastAccessed);
   var unload = document.createElement("button");
   unload.classList.add("unload-tab");
   unload.textContent = "Unload";
@@ -258,7 +279,15 @@ function renderTabItem(tab) {
   close.classList.add("close-tab");
   close.textContent = "Close";
   li.appendChild(info);
-  li.appendChild(accessed);
+  let ago = formatAgo(tab.lastAccessed);
+  if (ago) {
+    var accessed = document.createElement("time");
+    accessed.classList.add("tab-accessed");
+    accessed.dateTime = new Date(tab.lastAccessed).toISOString();
+    accessed.title = `Last used ${ago.long} (${new Date(tab.lastAccessed).toLocaleString()})`;
+    accessed.textContent = ago.short;
+    li.appendChild(accessed);
+  }
   li.appendChild(unload);
   li.appendChild(close);
   setPinned(li, tab.pinned);
@@ -274,15 +303,16 @@ function setPinned(li, pinned) {
 }
 
 var relativeTime = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-var timeUnits = [["year", 31536e6], ["month", 2592e6], ["week", 6048e5], ["day", 864e5], ["hour", 36e5], ["minute", 6e4]];
+var timeUnits = [["year", 31536e6, "y"], ["month", 2592e6, "mo"], ["week", 6048e5, "w"]];
+// Only tabs unused for a week or more get a label.
 function formatAgo(timestamp) {
   let elapsed = Date.now() - timestamp;
-  for (let [unit, ms] of timeUnits) {
+  for (let [unit, ms, abbr] of timeUnits) {
     if (elapsed >= ms) {
-      return relativeTime.format(-Math.floor(elapsed / ms), unit);
+      let n = Math.floor(elapsed / ms);
+      return { short: `${n}${abbr}`, long: relativeTime.format(-n, unit) };
     }
   }
-  return "just now";
 }
 
 function tabItems(tabId) {
@@ -307,6 +337,21 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
     updateTabsLists();
   });
+  document.getElementById("filter").addEventListener("input", applyFilter);
+  for (let box of document.querySelectorAll("[data-hides]")) {
+    try {
+      let saved = localStorage.getItem(box.id);
+      if (saved != null) {
+        box.checked = saved == "true";
+      }
+    } catch {}
+    box.addEventListener("change", () => {
+      try {
+        localStorage.setItem(box.id, box.checked);
+      } catch {}
+      applyFilter();
+    });
+  }
   updateTabsLists();
 });
 
@@ -346,5 +391,5 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     elt.classList.toggle("discarded-tab", tab.discarded);
     setPinned(elt, tab.pinned);
   }
-  updateCounts();
+  applyFilter();
 }, { properties: ["title", "url", "discarded", "pinned"] });

@@ -1,49 +1,180 @@
 :root {
   color-scheme: light dark;
+  --bg: light-dark(#f7f7f5, #18191b);
+  --surface: light-dark(#fff, #222326);
+  --surface-hover: light-dark(#eef3fb, #2a303a);
+  --border: light-dark(#e3e3df, #34363a);
+  --text: light-dark(#1d1d1f, #ececee);
+  --muted: light-dark(#6b6b70, #9a9aa2);
+  --accent: light-dark(#2f5fd0, #7aa2ff);
+  --accent-text: light-dark(#fff, #10131a);
+  --danger: light-dark(#c4323a, #ff7b82);
+  --danger-soft: light-dark(#fcebec, #3a2224);
+  --loaded: light-dark(#1f8a4c, #5fd08f);
+  --unloaded: light-dark(#b8660b, #f2a85a);
+  --radius: 8px;
 }
 
 body {
-  max-width: 1200px;
-  margin: 0 auto;
-  font-family: system-ui, sans-serif;
+  margin: 0;
+  padding: 3rem 1.5rem 6rem;
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Single-column list stays readable width; everything else spans the window. */
+#dupes {
+  max-width: 1100px;
+}
+
+h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0 0 1.25rem;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+h1 img {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 details {
-  margin-bottom: 4em;
+  margin-bottom: 3rem;
 }
 
 summary {
   cursor: pointer;
+  list-style: none;
+}
+
+summary::before {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  margin: 0 0.75em 0.15em 0.15em;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+summary:has(> h2)::before {
+  width: 0.55em;
+  height: 0.55em;
+  margin-bottom: 0.25em;
+}
+
+details[open] > summary::before {
+  transform: translateY(-0.15em) rotate(45deg);
+}
+
+summary:hover::before {
+  border-color: var(--text);
 }
 
 summary h2 {
   display: inline;
 }
 
-h1 {
-  font-size: 250%;
+.count {
+  font-weight: 400;
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
-h2 {
-  font-size: 200%;
-  font-weight: normal;
-  color: light-dark(#333, #ddd);
+/* Separator lives here so it hides with the count. */
+[data-count-hide-zero]::before {
+  content: " ";
+}
+
+[data-count-icon="●"] .count-icon {
+  color: var(--loaded);
+}
+
+[data-count-icon="○"] .count-icon {
+  color: var(--unloaded);
+}
+
+.sort {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: 2.5rem;
+  color: var(--muted);
+}
+
+.sort label {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+#filter {
+  width: 16rem;
+  max-width: 100%;
+}
+
+.filtered-out {
+  display: none !important;
+}
+
+input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+select,
+input:not([type="checkbox"]) {
+  font: inherit;
+  color: var(--text);
+  padding: 0.35em 0.6em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--surface);
 }
 
 .tabs-list ul,
 ul.tabs-list {
-  margin: 0;
+  margin: 0.75rem 0 0;
   padding: 0;
 }
 
 .tabs-list li {
   list-style: none;
-  padding: 8px;
-  margin-left: -8px;
-  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 1em;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.tabs-list li + li {
+  margin-top: 2px;
+}
+
+.tabs-list li:not(.deleted-tab):hover {
+  background-color: var(--surface-hover);
+}
+
+.tabs-list p {
+  margin: 0;
 }
 
 .tab-info {
@@ -51,74 +182,53 @@ ul.tabs-list {
   min-width: 0;
 }
 
-.tabs-list li.deleted-tab {
-  cursor: default;
-}
-
-.deleted-tab .close-tab,
-.deleted-tab .unload-tab,
-.discarded-tab .unload-tab,
-.active-tab .unload-tab,
-.pinned-tab button {
-  visibility: hidden;
-}
-
-.pinned-tab {
-  opacity: 0.6;
-}
-
-.deleted-tab {
-  opacity: 0.33;
-  background-color: light-dark(#ffdddd, #5a2a2a);
-}
-
-.tabs-list li:not(.deleted-tab):hover {
-  background-color: light-dark(#ddffdd, #234a23);
-}
-
-.tabs-list p {
-  margin: 0;
-}
-
-.tab-title {
-  font-size: 120%;
-  font-weight: bold;
-  padding-bottom: 4px;
-
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  
-  color: light-dark(#333, #ddd);
-}
-
+.tab-title,
 .tab-url {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: light-dark(#666, #aaa);
+}
+
+.tab-title {
+  font-weight: 550;
+}
+
+.discarded-tab .tab-title {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.tab-url {
+  margin-top: 1px;
+  font: 12.5px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--muted);
 }
 
 .tab-accessed {
+  padding: 0.1em 0.55em;
+  border-radius: 999px;
   white-space: nowrap;
-  color: light-dark(#666, #aaa);
+  font-size: 0.72rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--unloaded);
+  background-color: light-dark(#fdf1e2, #3a2c1c);
 }
 
-.sort {
-  display: block;
-  margin-bottom: 2em;
+.tab-badge,
+.tab-container {
+  margin-right: 0.5em;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  vertical-align: 0.1em;
 }
 
 .tab-badge {
   display: none;
-  margin-right: 0.5em;
-  padding: 0 0.4em;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  font-size: 75%;
-  font-weight: normal;
-  vertical-align: middle;
-  color: light-dark(#666, #aaa);
+  color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .pinned-tab .tab-pinned,
@@ -128,70 +238,119 @@ ul.tabs-list {
 
 .tab-container {
   display: inline-block;
-  margin-right: 0.5em;
-  padding: 0 0.4em;
-  border-radius: 3px;
-  font-size: 75%;
-  font-weight: normal;
-  vertical-align: middle;
   color: #fff;
   background-color: var(--container-color);
 }
 
+.pinned-tab {
+  opacity: 0.6;
+}
+
+.deleted-tab {
+  opacity: 0.45;
+  background-color: var(--danger-soft);
+}
+
+.tabs-list li.deleted-tab {
+  cursor: default;
+}
+
+.deleted-tab .tab-title-text {
+  text-decoration: line-through;
+}
+
+.deleted-tab .close-tab,
+.deleted-tab .unload-tab,
+.discarded-tab .unload-tab,
+.active-tab .unload-tab,
+.pinned-tab button {
+  display: none;
+}
+
+button {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4em 0.9em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  background-color: var(--surface);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover {
+  border-color: var(--muted);
+}
+
+.close-tab:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.move-all {
+  color: var(--accent-text);
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+.move-all:hover {
+  border-color: var(--accent);
+  filter: brightness(1.1);
+}
+
+#all-tabs-list ul {
+  columns: 3 28rem;
+  column-gap: 0.75rem;
+}
+
+#all-tabs-list li {
+  break-inside: avoid;
+}
+
+.host-toggles {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+#top-hosts-list {
+  margin-top: 0.75rem;
+  columns: 3 28rem;
+  column-gap: 0.75rem;
+}
+
 .host-group {
-  margin: 1.5em 0 0;
+  margin: 0 0 0.75rem;
+  break-inside: avoid;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--surface);
+}
+
+.host-group .tabs-list {
+  margin: 0;
+  padding: 0 0.4rem 0.4rem;
 }
 
 .host-header {
   display: flex;
   align-items: center;
-  gap: 1em;
-  margin-left: -8px;
-  padding: 8px;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
   overflow-wrap: anywhere;
-  background-color: light-dark(#e8eef8, #26303d);
-}
-
-/* Flex summaries lose the native marker. */
-.host-header::before {
-  content: "▸";
-}
-
-.host-group[open] > .host-header::before {
-  content: "▾";
 }
 
 .host-header h3 {
-  flex: 1;
+  flex: 1 1 12rem;
   margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
-.discarded-tab .tab-title {
-  font-weight: normal;
-}
-
-.close-tab,
-.unload-tab,
-.unload-all,
-.move-all {
-  font-size: 110%;
-  padding: 0.5em 1.25em;
-  cursor: pointer;
-}
-
-/* Separator lives here so it hides with the count. */
-[data-count-hide-zero]::before {
-  content: " ";
-}
-
-[data-count-icon="●"] .count-icon {
-  color: light-dark(#1a8a1a, #5c5);
-}
-
-[data-count-icon="○"] .count-icon {
-  color: light-dark(#c60, #fa5);
-}
-
-.count {
-  color: light-dark(#666, #aaa);
+/* Keeps find-in-page from matching (and opening) the collapsed All tabs list. */
+#all-tabs:not([open]) > #all-tabs-list {
+  display: none;
 }
