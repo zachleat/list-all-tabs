@@ -193,6 +193,16 @@ ul.tabs-list {
   margin: 0;
 }
 
+.tab-favicon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.tab-favicon:not([src]) {
+  visibility: hidden;
+}
+
 .tab-info {
   flex: 1;
   min-width: 0;

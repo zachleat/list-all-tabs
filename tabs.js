@@ -249,6 +249,11 @@ function renderTabItem(tab) {
   li.setAttribute("data-tabid", tab.id);
   li.classList.toggle("discarded-tab", tab.discarded);
   li.classList.toggle("active-tab", tab.active);
+  var favicon = document.createElement("img");
+  favicon.classList.add("tab-favicon");
+  favicon.alt = "";
+  setFavicon(favicon, tab.favIconUrl);
+  li.appendChild(favicon);
   var pTitle = document.createElement("p");
   pTitle.classList.add("tab-title");
   let container = containers[tab.cookieStoreId];
@@ -297,6 +302,16 @@ function renderTabItem(tab) {
   li.appendChild(close);
   setPinned(li, tab.pinned);
   return li;
+}
+
+// Icons extension pages can't load (like chrome:// ones) leave an empty slot.
+function setFavicon(img, url) {
+  img.onerror = () => img.removeAttribute("src");
+  if (url) {
+    img.src = url;
+  } else {
+    img.removeAttribute("src");
+  }
 }
 
 // Pinned tabs can't be closed, unloaded, or moved from here.
@@ -393,8 +408,11 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
   for (let elt of tabItems(tabId)) {
     elt.querySelector(".tab-title-text").textContent = tab.title;
+    if (changeInfo.favIconUrl != null) {
+      setFavicon(elt.querySelector(".tab-favicon"), tab.favIconUrl);
+    }
     elt.classList.toggle("discarded-tab", tab.discarded);
     setPinned(elt, tab.pinned);
   }
   applyFilter();
-}, { properties: ["title", "url", "discarded", "pinned"] });
+}, { properties: ["title", "url", "discarded", "pinned", "favIconUrl"] });
