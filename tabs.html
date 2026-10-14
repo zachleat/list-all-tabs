@@ -20,12 +20,12 @@
         <option value="newest">Most recently used</option>
       </select>
     </label>
-    <label><input type="checkbox" id="show-unloaded" data-hides="discarded-tab" checked> Show unloaded</label>
+    <label><input type="checkbox" id="show-unloaded" data-hides="discarded-tab" data-counted checked> Show unloaded</label>
     <label><input type="checkbox" id="show-pinned" data-hides="pinned-tab"> Show pinned</label>
   </div>
 
   <details id="all-tabs">
-  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span> <span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
+  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span> <span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all">Unload all</button></summary>
   <div id="all-tabs-list" class="tabs-list"></div>
   </details>
 

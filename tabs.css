@@ -90,6 +90,21 @@ summary h2 {
   display: inline;
 }
 
+summary:has(> h2 + button) {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+summary:has(> h2 + button)::before {
+  margin-right: calc(0.75em - 1rem);
+  margin-bottom: 0;
+}
+
+summary:has(> h2 + button) h2 {
+  flex: 1;
+}
+
 .count {
   font-weight: 400;
   font-size: 0.8em;
@@ -130,7 +145,8 @@ summary h2 {
   max-width: 100%;
 }
 
-.filtered-out {
+.filtered-out,
+.hidden-tab {
   display: none !important;
 }
 

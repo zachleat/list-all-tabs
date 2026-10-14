@@ -101,7 +101,8 @@ function updateTabsLists() {
       unloadAll.textContent = "Unload all";
       let moveAll = document.createElement("button");
       moveAll.className = "move-all";
-      moveAll.textContent = "Consolidate in one window";
+      moveAll.textContent = "Consolidate";
+      moveAll.title = "Move these tabs into one new window";
       moveAll.addEventListener("click", (e) => {
         e.preventDefault();
         moveGroup(tabList);
@@ -134,25 +135,29 @@ function updateTabsLists() {
   });
 }
 
-// Unchecked toggles hide their tab class; every word must appear in the title, URL, or container name.
+// Unchecked toggles hide their tab class (data-counted keeps it in counts); every word must match title, URL, or container.
 function applyFilter() {
-  let hiddenClasses = [...document.querySelectorAll("[data-hides]:not(:checked)")].map((box) => box.dataset.hides);
+  let unchecked = [...document.querySelectorAll("[data-hides]:not(:checked)")];
+  let uncountedClasses = unchecked.filter((box) => !("counted" in box.dataset)).map((box) => box.dataset.hides);
+  let countedClasses = unchecked.filter((box) => "counted" in box.dataset).map((box) => box.dataset.hides);
   let words = document.getElementById("filter").value.toLowerCase().split(/\s+/).filter(Boolean);
   for (let li of document.querySelectorAll(".tabs-list li")) {
     let text = [".tab-title-text", ".tab-url", ".tab-container"]
       .map((selector) => li.querySelector(selector)?.textContent ?? "")
       .join(" ")
       .toLowerCase();
-    let hidden = hiddenClasses.some((name) => li.classList.contains(name)) || !words.every((word) => text.includes(word));
-    li.classList.toggle("filtered-out", hidden);
+    let filtered = uncountedClasses.some((name) => li.classList.contains(name)) || !words.every((word) => text.includes(word));
+    li.classList.toggle("filtered-out", filtered);
+    li.classList.toggle("hidden-tab", !filtered && countedClasses.some((name) => li.classList.contains(name)));
   }
   for (let group of document.querySelectorAll(".host-group")) {
     group.classList.toggle("filtered-out", !group.querySelector("li:not(.filtered-out)"));
+    group.classList.toggle("hidden-tab", !group.querySelector("li:not(.filtered-out, .hidden-tab)"));
   }
   updateCounts();
 }
 
-// Counts are scoped to the enclosing section; closed and filtered tabs are not counted.
+// Counts are scoped to the enclosing section; closed and filtered tabs are not counted, hidden ones are.
 function updateCounts() {
   for (let count of document.querySelectorAll("[data-count-of]")) {
     let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab, .filtered-out)`);
@@ -174,7 +179,7 @@ function updateCounts() {
 
 function closeGroup(name, tabList) {
   browser.tabs.getCurrent().then((self) => {
-    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out)")]
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out, .hidden-tab)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
     let noun = tabIds.length == 1 ? "tab" : "tabs";
@@ -186,7 +191,7 @@ function closeGroup(name, tabList) {
 
 function moveGroup(tabList) {
   browser.tabs.getCurrent().then((self) => {
-    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out)")]
+    let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out, .hidden-tab)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
     if (tabIds.length == 0) {
