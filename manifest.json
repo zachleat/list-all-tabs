@@ -19,6 +19,7 @@
     "tabs",
     "storage",
     "sessions",
+    "cookies",
     "contextualIdentities"
   ],
   "background": {

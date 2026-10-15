@@ -281,7 +281,7 @@ function showToast(text, action) {
 // Records keep what's needed to reopen a tab; id changes each time it reopens.
 function getTabs(tabIds) {
   return Promise.all(tabIds.map((id) => browser.tabs.get(id))).then((tabs) => tabs.map(
-    ({ id, url, title, favIconUrl, lastAccessed, windowId, index }) => ({ id, url, title, favIconUrl, lastAccessed, windowId, index })
+    ({ id, url, title, favIconUrl, lastAccessed, windowId, index, cookieStoreId }) => ({ id, url, title, favIconUrl, lastAccessed, windowId, index, cookieStoreId })
   ));
 }
 
@@ -295,11 +295,11 @@ function reopenTabs(records) {
   return Promise.all([browser.tabs.getCurrent(), browser.sessions.getRecentlyClosed()]).then(([self, closed]) => {
     let closedTabs = closed.filter((entry) => entry.tab).map((entry) => entry.tab);
     let reopenAll = records.reduce((chain, rec) => chain.then(() => {
-      let match = closedTabs.findIndex((tab) => tab.url == rec.url);
+      let match = closedTabs.findIndex((tab) => tab.url == rec.url && tab.cookieStoreId == rec.cookieStoreId);
       let reopened = match >= 0
         ? browser.sessions.restore(closedTabs.splice(match, 1)[0].sessionId).then((session) => session.tab)
-        : browser.tabs.create({ ...unloaded(rec), windowId: rec.windowId, index: rec.index })
-          .catch(() => browser.tabs.create(unloaded(rec)));
+        : createTab({ ...unloaded(rec), windowId: rec.windowId, index: rec.index }, rec.cookieStoreId)
+          .catch(() => createTab(unloaded(rec), rec.cookieStoreId));
       return reopened.then((tab) => rec.id = tab.id, () => {});
     }), Promise.resolve());
     return reopenAll.then(() => self && browser.tabs.update(self.id, { active: true }));
@@ -309,6 +309,14 @@ function reopenTabs(records) {
 // Tabs past Firefox's recently closed list reopen unloaded so they don't all load at once.
 function unloaded(rec) {
   return { url: rec.url, title: rec.title, active: false, discarded: true };
+}
+
+// Opens in the tab's container, or without one when it was removed or can't be used here.
+function createTab(options, cookieStoreId) {
+  if (!containers[cookieStoreId]) {
+    return browser.tabs.create(options);
+  }
+  return browser.tabs.create({ ...options, cookieStoreId }).catch(() => browser.tabs.create(options));
 }
 
 function closeAction(records) {
@@ -352,10 +360,10 @@ function saveGroup(section) {
 
 function saveAction(name, records, join = false) {
   let items = records.map(savedItem);
-  let urls = items.map((item) => item.url);
+  let keys = items.map(savedKey);
   return addSaved(name, items, join).then((meta) => closeTabs(records).then(() => record(
     `Saved ${tabCount(records.length)}`,
-    () => removeSaved(meta.id, urls).then(() => reopenTabs(records)),
+    () => removeSaved(meta.id, keys).then(() => reopenTabs(records)),
     () => putSaved(meta, items).then(() => closeTabs(records)),
   )));
 }
@@ -365,15 +373,22 @@ function loadSaved() {
   return browser.storage.local.get({ stored: [] }).then((data) => data.stored);
 }
 
-function savedItem({ url, title, favIconUrl, lastAccessed }) {
-  return { url, title, favIconUrl, lastAccessed };
+// The container's name and color are kept so its label still shows if it's removed.
+function savedItem({ url, title, favIconUrl, lastAccessed, cookieStoreId }) {
+  let container = containers[cookieStoreId];
+  return { url, title, favIconUrl, lastAccessed, cookieStoreId, container: container && { name: container.name, colorCode: container.colorCode } };
+}
+
+// Same URL in different containers is a different site; older saves have no container.
+function savedKey(item) {
+  return `${item.cookieStoreId ?? "firefox-default"} ${item.url}`;
 }
 
 function groupMeta({ id, name, stored }) {
   return { id, name, stored };
 }
 
-// Newest group first; a URL is listed once per group. With join, tabs go into the newest group of that name.
+// Newest group first; a site is listed once per group. With join, tabs go into the newest group of that name.
 // Resolves to the group's id, name, and time.
 function addSaved(name, items, join = false) {
   return loadSaved().then((groups) => {
@@ -400,8 +415,8 @@ function putSaved(meta, items) {
 }
 
 function putInGroup(groups, group, items) {
-  let urls = new Set(items.map((item) => item.url));
-  group.tabs = [...new Map(items.map((item) => [item.url, item])).values(), ...group.tabs.filter((tab) => !urls.has(tab.url))];
+  let keys = new Set(items.map(savedKey));
+  group.tabs = [...new Map(items.map((item) => [savedKey(item), item])).values(), ...group.tabs.filter((tab) => !keys.has(savedKey(tab)))];
   return browser.storage.local.set({ stored: groups }).then(() => groupMeta(group));
 }
 
@@ -410,58 +425,58 @@ function saveTab(tabId) {
   getTabs([tabId]).then((records) => saveAction(getHost(records[0].url), records, true));
 }
 
-function findSaved(groupId, urls) {
+function findSaved(groupId, keys) {
   return loadSaved().then((groups) => {
     let group = groups.find((group) => group.id == groupId);
-    return { meta: groupMeta(group), items: group.tabs.filter((tab) => urls.includes(tab.url)) };
+    return { meta: groupMeta(group), items: group.tabs.filter((tab) => keys.includes(savedKey(tab))) };
   });
 }
 
 // Resolves to records of the tabs that opened.
 function openSaved(items) {
-  return Promise.allSettled(items.map((item) => browser.tabs.create({ url: item.url, active: false }))).then((results) => {
+  return Promise.allSettled(items.map((item) => createTab({ url: item.url, active: false }, item.cookieStoreId))).then((results) => {
     let failed = items.filter((item, i) => results[i].status == "rejected");
     if (failed.length) {
       alert(`Couldn’t restore:\n${failed.map((item) => item.url).join("\n")}`);
     }
-    return results.flatMap((result, i) => result.status == "fulfilled" ? [{ id: result.value.id, url: items[i].url }] : []);
+    return results.flatMap((result, i) => result.status == "fulfilled" ? [{ id: result.value.id, key: savedKey(items[i]) }] : []);
   });
 }
 
-// Restored URLs leave their group.
-function restoreSaved(groupId, urls) {
-  findSaved(groupId, urls).then(({ meta, items }) => openSaved(items).then((records) => {
-    let opened = new Set(records.map((rec) => rec.url));
-    let restored = items.filter((item) => opened.has(item.url));
+// Restored sites leave their group.
+function restoreSaved(groupId, keys) {
+  findSaved(groupId, keys).then(({ meta, items }) => openSaved(items).then((records) => {
+    let opened = new Set(records.map((rec) => rec.key));
+    let restored = items.filter((item) => opened.has(savedKey(item)));
     if (!restored.length) {
       return;
     }
-    let restoredUrls = restored.map((item) => item.url);
-    return removeSaved(meta.id, restoredUrls).then(() => record(
+    let restoredKeys = restored.map(savedKey);
+    return removeSaved(meta.id, restoredKeys).then(() => record(
       `Restored ${tabCount(restored.length)}`,
       () => closeTabs(records).then(() => putSaved(meta, restored)),
       () => openSaved(restored).then((fresh) => {
         records = fresh;
-        return removeSaved(meta.id, restoredUrls);
+        return removeSaved(meta.id, restoredKeys);
       }),
     ));
   }));
 }
 
-function deleteSaved(groupId, url) {
-  findSaved(groupId, [url]).then(({ meta, items }) => removeSaved(groupId, [url]).then(() => record(
+function deleteSaved(groupId, key) {
+  findSaved(groupId, [key]).then(({ meta, items }) => removeSaved(groupId, [key]).then(() => record(
     "Deleted 1 saved site",
     () => putSaved(meta, items),
-    () => removeSaved(groupId, [url]),
+    () => removeSaved(groupId, [key]),
   )));
 }
 
 // Empty groups are dropped.
-function removeSaved(groupId, urls) {
-  let removed = new Set(urls);
+function removeSaved(groupId, keys) {
+  let removed = new Set(keys);
   return loadSaved().then((groups) => browser.storage.local.set({
     stored: groups
-      .map((group) => group.id == groupId ? { ...group, tabs: group.tabs.filter((tab) => !removed.has(tab.url)) } : group)
+      .map((group) => group.id == groupId ? { ...group, tabs: group.tabs.filter((tab) => !removed.has(savedKey(tab))) } : group)
       .filter((group) => group.tabs.length),
   }));
 }
@@ -470,7 +485,7 @@ function renderSaved() {
   let collapsed = new Set(
     [...document.querySelectorAll(".saved-group:not([open])")].map((group) => group.dataset.id)
   );
-  loadSaved().then((groups) => {
+  Promise.all([loadSaved(), loadContainers()]).then(([groups]) => {
     document.getElementById("saved-list").replaceChildren(...groups.map((group) => renderSavedGroup(group, collapsed)));
     document.getElementById("saved").hidden = !groups.length;
     applyFilter();
@@ -512,13 +527,18 @@ function renderSavedGroup(group, collapsed) {
 
 function renderSavedTab(tab) {
   let li = document.createElement("li");
-  li.dataset.url = tab.url;
+  li.dataset.key = savedKey(tab);
   let favicon = document.createElement("img");
   favicon.classList.add("tab-favicon");
   favicon.alt = "";
   setFavicon(favicon, tab.favIconUrl);
   let pTitle = document.createElement("p");
   pTitle.classList.add("tab-title");
+  // Prefers the container's current name and color.
+  let label = containerLabel(containers[tab.cookieStoreId] ?? tab.container);
+  if (label) {
+    pTitle.appendChild(label);
+  }
   let titleText = document.createElement("span");
   titleText.classList.add("tab-title-text");
   titleText.textContent = tab.title;
@@ -578,17 +598,17 @@ document.addEventListener("click", (e) => {
   if (restoreAll) {
     e.preventDefault();
     let group = restoreAll.closest(".saved-group");
-    restoreSaved(group.dataset.id, [...group.querySelectorAll("li:not(.filtered-out)")].map((li) => li.dataset.url));
+    restoreSaved(group.dataset.id, [...group.querySelectorAll("li:not(.filtered-out)")].map((li) => li.dataset.key));
     return;
   }
   let restore = e.target.closest(".restore-tab");
   if (restore) {
-    restoreSaved(restore.closest(".saved-group").dataset.id, [restore.closest("li").dataset.url]);
+    restoreSaved(restore.closest(".saved-group").dataset.id, [restore.closest("li").dataset.key]);
     return;
   }
   let remove = e.target.closest(".delete-saved");
   if (remove) {
-    deleteSaved(remove.closest(".saved-group").dataset.id, remove.closest("li").dataset.url);
+    deleteSaved(remove.closest(".saved-group").dataset.id, remove.closest("li").dataset.key);
     return;
   }
   let unloadAll = e.target.closest(".unload-all");
@@ -633,12 +653,8 @@ function renderTabItem(tab) {
   li.appendChild(favicon);
   var pTitle = document.createElement("p");
   pTitle.classList.add("tab-title");
-  let container = containers[tab.cookieStoreId];
-  if (container) {
-    let label = document.createElement("span");
-    label.classList.add("tab-container");
-    label.style.setProperty("--container-color", container.colorCode);
-    label.textContent = container.name;
+  let label = containerLabel(containers[tab.cookieStoreId]);
+  if (label) {
     pTitle.appendChild(label);
   }
   // Shown by CSS while the tab is pinned or discarded.
@@ -709,6 +725,17 @@ function icon(paths) {
     svg.appendChild(path);
   }
   return svg;
+}
+
+function containerLabel(container) {
+  if (!container) {
+    return;
+  }
+  let label = document.createElement("span");
+  label.classList.add("tab-container");
+  label.style.setProperty("--container-color", container.colorCode);
+  label.textContent = container.name;
+  return label;
 }
 
 // Icons extension pages can't load (like chrome:// ones) leave an empty slot.
