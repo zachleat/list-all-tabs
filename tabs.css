@@ -13,6 +13,7 @@
   --loaded: light-dark(#1f8a4c, #5fd08f);
   --unloaded: light-dark(#b8660b, #f2a85a);
   --radius: 8px;
+  --pill-height: 1.15rem;
 }
 
 body {
@@ -83,6 +84,7 @@ summary:hover::before {
 
 summary h2 {
   display: inline;
+  margin: 0;
 }
 
 summary:has(> h2 + button) {
@@ -226,7 +228,10 @@ ul.tabs-list {
 }
 
 .tab-accessed {
-  padding: 0.1em 0.55em;
+  display: inline-flex;
+  align-items: center;
+  height: var(--pill-height);
+  padding: 0 0.55em;
   border-radius: 999px;
   white-space: nowrap;
   font-size: 0.72rem;
@@ -236,14 +241,17 @@ ul.tabs-list {
   background-color: light-dark(#fdf1e2, #3a2c1c);
 }
 
+/* Pills share one height whether they hold text or an icon. */
 .tab-badge,
 .tab-container {
+  align-items: center;
+  height: var(--pill-height);
   margin-right: 0.5em;
-  padding: 0.1em 0.5em;
+  padding: 0 0.5em;
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 500;
-  vertical-align: 0.1em;
+  vertical-align: middle;
 }
 
 .tab-badge {
@@ -254,11 +262,11 @@ ul.tabs-list {
 
 .pinned-tab .tab-pinned,
 .discarded-tab .tab-unloaded {
-  display: inline-block;
+  display: inline-flex;
 }
 
 .tab-container {
-  display: inline-block;
+  display: inline-flex;
   color: #fff;
   background-color: var(--container-color);
 }
@@ -272,7 +280,8 @@ ul.tabs-list {
   background-color: var(--danger-soft);
 }
 
-.tabs-list li.deleted-tab {
+.tabs-list li.deleted-tab,
+.saved-group li {
   cursor: default;
 }
 
@@ -283,6 +292,7 @@ ul.tabs-list {
 .deleted-tab .close-tab,
 .deleted-tab .unload-tab,
 .deleted-tab .mute-tab,
+.deleted-tab .save-tab,
 .discarded-tab .unload-tab,
 .active-tab .unload-tab,
 .pinned-tab button:not(.mute-tab) {
@@ -306,7 +316,41 @@ button:hover {
   border-color: var(--muted);
 }
 
-.close-tab:hover {
+/* Icon-only, padded to match the height of text buttons. */
+.tabs-list .close-tab,
+.tabs-list .save-tab,
+.tabs-list .unload-tab,
+.unload-all,
+.save-all,
+.host-header .close-tab {
+  padding: 0.525em 0.55em;
+}
+
+button:has(svg) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}
+
+button svg,
+.tab-badge svg {
+  display: block;
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab-badge svg {
+  width: 1em;
+  height: 1em;
+}
+
+.close-tab:hover,
+.save-all:hover {
   color: var(--danger);
   border-color: var(--danger);
 }
@@ -331,12 +375,6 @@ button:hover {
   break-inside: avoid;
 }
 
-.host-toggles {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
 #top-hosts-list {
   margin-top: 0.75rem;
   columns: 3 28rem;
@@ -352,6 +390,15 @@ button:hover {
 
 .card {
   margin: 0;
+}
+
+#saved-list {
+  align-items: start;
+}
+
+.saved-time {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .host-group {

@@ -25,7 +25,7 @@
   </div>
 
   <details id="important" open hidden>
-  <summary><h2>Important</h2></summary>
+  <summary><h2>Important <span class="count">(<span data-count-of="li"></span><span data-count-of="li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
   <div class="cards">
     <section id="dupes" class="card">
     <div class="host-header"><h3>Duplicate tabs <span class="count">(<span data-count-of="#dupes-tabs-list li"></span><span data-count-of="#dupes-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-zero data-count-hide-same></span><span data-count-of="#dupes-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h3></div>
@@ -39,17 +39,18 @@
   </details>
 
   <details id="all-tabs">
-  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span><span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all">Unload all</button></summary>
+  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li" data-count-unit="tab"></span><span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all" title="Unload all" aria-label="Unload all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h7l-7 8h7"/><path d="M12 6h5l-5 6h5"/><path d="M18 2h3l-3 4h3"/></svg></button> <button type="button" class="save-all" title="Save all: close these tabs and keep them under Saved" aria-label="Save all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button></summary>
   <div id="all-tabs-list" class="tabs-list"></div>
   </details>
 
   <details id="top-hosts" open>
-  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
-  <div class="host-toggles">
-    <button type="button" data-hosts-open="true">Expand all</button>
-    <button type="button" data-hosts-open="false">Collapse all</button>
-  </div>
+  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" data-hosts-open="true">Expand all</button> <button type="button" data-hosts-open="false">Collapse all</button></summary>
   <div id="top-hosts-list"></div>
+  </details>
+
+  <details id="saved" open hidden>
+  <summary><h2>Saved <span class="count">(<span data-count-of="li" data-count-unit="site"></span>)</span></h2></summary>
+  <div id="saved-list" class="cards"></div>
   </details>
 
   <script src="tabs.js"></script>
