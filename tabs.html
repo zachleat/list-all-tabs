@@ -9,7 +9,7 @@
 </head>
 
 <body>
-  <h1><img src="icon.svg" alt="">List all tabs</h1>
+  <h1><img src="icon.svg" alt="">List all tabs <span class="version"></span></h1>
 
   <div class="sort">
     <input type="search" id="filter" placeholder="Filter tabs" aria-label="Filter tabs">
@@ -52,6 +52,8 @@
   <summary><h2>Saved <span class="count">(<span data-count-of="li" data-count-unit="site"></span>)</span></h2></summary>
   <div id="saved-list" class="cards"></div>
   </details>
+
+  <p class="note">To see CPU and memory use for each tab, open <code>about:processes</code> <button type="button" class="copy-processes" title="Copy" aria-label="Copy about:processes"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button> in the address bar.</p>
 
   <div id="toast" class="toast" role="status" hidden><span class="toast-text"></span> <button type="button" class="toast-action"></button></div>
 

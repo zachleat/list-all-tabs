@@ -570,6 +570,11 @@ function unloadGroup(button) {
 }
 
 document.addEventListener("click", (e) => {
+  if (e.target.closest(".copy-processes")) {
+    navigator.clipboard.writeText("about:processes")
+      .then(() => showToast("Copied about:processes"), () => showToast("Couldn’t copy"));
+    return;
+  }
   let toastAction = e.target.closest(".toast-action");
   if (toastAction) {
     toastAction.textContent == "Undo" ? undo() : redo();
@@ -805,6 +810,7 @@ function scheduleRender() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.querySelector(".version").textContent = `v${browser.runtime.getManifest().version}`;
   let sort = document.getElementById("sort");
   try {
     sort.value = localStorage.getItem("sort") || sort.value;
