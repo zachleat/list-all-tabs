@@ -1,4 +1,5 @@
 :root {
+  overflow-y: scroll;
   color-scheme: light dark;
   --bg: light-dark(#f7f7f5, #18191b);
   --surface: light-dark(#fff, #222326);
@@ -168,7 +169,9 @@ ul.tabs-list {
   padding: 0;
 }
 
+/* Rows never split across columns, even inside a host card taller than a column. */
 .tabs-list li {
+  break-inside: avoid;
   list-style: none;
   display: flex;
   align-items: center;
@@ -190,10 +193,13 @@ ul.tabs-list {
   margin: 0;
 }
 
+/* Centered on the title's line rather than the whole row. */
 .tab-favicon {
   flex: none;
+  align-self: flex-start;
   width: 16px;
   height: 16px;
+  margin-top: calc((1.45em - 16px) / 2);
 }
 
 .tab-favicon:not([src]) {
@@ -312,7 +318,12 @@ button {
   white-space: nowrap;
 }
 
-button:hover {
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button:hover:not(:disabled) {
   border-color: var(--muted);
 }
 
@@ -344,24 +355,37 @@ button svg,
   stroke-linejoin: round;
 }
 
+.tab-badge {
+  gap: 0.3em;
+}
+
 .tab-badge svg {
   width: 1em;
   height: 1em;
 }
 
-.close-tab:hover,
-.save-all:hover {
+.close-tab:hover {
   color: var(--danger);
   border-color: var(--danger);
 }
 
-.move-all {
+/* Buttons acting on a whole section share the accent style. */
+.move-all,
+.unload-all,
+.save-all,
+.restore-all,
+.host-header .close-tab {
   color: var(--accent-text);
   border-color: var(--accent);
   background-color: var(--accent);
 }
 
-.move-all:hover {
+.move-all:hover,
+.unload-all:hover,
+.save-all:hover,
+.restore-all:hover,
+.host-header .close-tab:hover {
+  color: var(--accent-text);
   border-color: var(--accent);
   filter: brightness(1.1);
 }
@@ -369,10 +393,6 @@ button svg,
 #all-tabs-list ul {
   columns: 3 28rem;
   column-gap: 0.75rem;
-}
-
-#all-tabs-list li {
-  break-inside: avoid;
 }
 
 #top-hosts-list {
@@ -433,6 +453,33 @@ button svg,
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  border-radius: var(--radius);
+  color: var(--bg);
+  background-color: var(--text);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.2);
+}
+
+.toast[hidden],
+.toast-action[hidden] {
+  display: none;
+}
+
+.toast-action {
+  color: inherit;
+  border-color: currentColor;
+  background-color: transparent;
 }
 
 /* Keeps find-in-page from matching (and opening) the collapsed All tabs list. */

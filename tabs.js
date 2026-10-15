@@ -116,7 +116,7 @@ function updateTabsLists() {
       moveAll.title = "Move these tabs into one new window";
       moveAll.addEventListener("click", (e) => {
         e.preventDefault();
-        moveGroup(tabList);
+        moveGroup(host, tabList);
       });
       let saveAll = document.createElement("button");
       saveAll.className = "save-all";
@@ -150,9 +150,23 @@ function updateTabsLists() {
       topHostsList.appendChild(group);
     }
 
+    updateToggleLabel();
     applyFilter();
   });
 }
+
+// Names the action Toggle all will take next.
+function updateToggleLabel() {
+  let anyOpen = [...document.querySelectorAll(".host-group")].some((group) => group.open);
+  document.querySelector(".toggle-hosts").textContent = anyOpen ? "Collapse all" : "Expand all";
+}
+
+// Toggle events don't bubble, so this listens during capture.
+document.addEventListener("toggle", (e) => {
+  if (e.target.matches(".host-group")) {
+    updateToggleLabel();
+  }
+}, true);
 
 // Unchecked toggles hide their tab class (data-counted keeps it in counts); every word must match title, URL, or container.
 function applyFilter() {
@@ -209,19 +223,108 @@ function closeGroup(name, tabList) {
     let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out, .hidden-tab)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
-    let noun = tabIds.length == 1 ? "tab" : "tabs";
-    if (tabIds.length > 0 && confirm(`Close ${tabIds.length} ${noun} from ${name}?`)) {
-      browser.tabs.remove(tabIds);
+    if (tabIds.length > 0 && confirm(`Close ${tabCount(tabIds.length)} from ${name}?`)) {
+      return getTabs(tabIds).then(closeAction);
     }
   });
 }
 
-function moveGroup(tabList) {
+function tabCount(n) {
+  return `${n} ${n == 1 ? "tab" : "tabs"}`;
+}
+
+// Undo history lasts until this page closes; a new action clears redo.
+var undoStack = [];
+var redoStack = [];
+var historyQueue = Promise.resolve();
+
+function record(label, undo, redo) {
+  undoStack.push({ label, undo, redo });
+  redoStack = [];
+  showToast(label, "Undo");
+}
+
+function stepHistory(from, to, verb, nextAction) {
+  let entry = from.pop();
+  if (!entry) {
+    return;
+  }
+  historyQueue = historyQueue
+    .then(verb == "Undid" ? entry.undo : entry.redo)
+    .then(() => {
+      to.push(entry);
+      showToast(`${verb}: ${entry.label}`, nextAction);
+    })
+    .catch((error) => showToast(`Couldn’t ${verb == "Undid" ? "undo" : "redo"}: ${error.message}`));
+}
+
+function undo() {
+  stepHistory(undoStack, redoStack, "Undid", "Redo");
+}
+
+function redo() {
+  stepHistory(redoStack, undoStack, "Redid", "Undo");
+}
+
+var toastTimer;
+function showToast(text, action) {
+  let toast = document.getElementById("toast");
+  toast.querySelector(".toast-text").textContent = text;
+  let button = toast.querySelector(".toast-action");
+  button.hidden = !action;
+  button.textContent = action ?? "";
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.hidden = true, 6000);
+}
+
+// Records keep what's needed to reopen a tab; id changes each time it reopens.
+function getTabs(tabIds) {
+  return Promise.all(tabIds.map((id) => browser.tabs.get(id))).then((tabs) => tabs.map(
+    ({ id, url, title, favIconUrl, lastAccessed, windowId, index }) => ({ id, url, title, favIconUrl, lastAccessed, windowId, index })
+  ));
+}
+
+// Tabs already closed elsewhere are skipped.
+function closeTabs(records) {
+  return Promise.allSettled(records.map((rec) => browser.tabs.remove(rec.id)));
+}
+
+// Prefers Firefox's recently closed tabs, which keep back/forward history, then puts this page back in front.
+function reopenTabs(records) {
+  return Promise.all([browser.tabs.getCurrent(), browser.sessions.getRecentlyClosed()]).then(([self, closed]) => {
+    let closedTabs = closed.filter((entry) => entry.tab).map((entry) => entry.tab);
+    let reopenAll = records.reduce((chain, rec) => chain.then(() => {
+      let match = closedTabs.findIndex((tab) => tab.url == rec.url);
+      let reopened = match >= 0
+        ? browser.sessions.restore(closedTabs.splice(match, 1)[0].sessionId).then((session) => session.tab)
+        : browser.tabs.create({ ...unloaded(rec), windowId: rec.windowId, index: rec.index })
+          .catch(() => browser.tabs.create(unloaded(rec)));
+      return reopened.then((tab) => rec.id = tab.id, () => {});
+    }), Promise.resolve());
+    return reopenAll.then(() => self && browser.tabs.update(self.id, { active: true }));
+  });
+}
+
+// Tabs past Firefox's recently closed list reopen unloaded so they don't all load at once.
+function unloaded(rec) {
+  return { url: rec.url, title: rec.title, active: false, discarded: true };
+}
+
+function closeAction(records) {
+  return closeTabs(records).then(() => record(
+    `Closed ${tabCount(records.length)}`,
+    () => reopenTabs(records),
+    () => closeTabs(records),
+  ));
+}
+
+function moveGroup(name, tabList) {
   browser.tabs.getCurrent().then((self) => {
     let tabIds = [...tabList.querySelectorAll("li:not(.deleted-tab, .pinned-tab, .filtered-out, .hidden-tab)")]
       .map((li) => +li.getAttribute("data-tabid"))
       .filter((id) => id != self?.id);
-    if (tabIds.length == 0) {
+    if (tabIds.length == 0 || !confirm(`Merge ${tabCount(tabIds.length)} from ${name} into a new window?`)) {
       return;
     }
     // The blank tab stays showing so no moved tab has to load.
@@ -240,14 +343,21 @@ function saveGroup(section) {
         .filter((id) => id != self?.id)
     )];
     let name = section.dataset.host ?? "All tabs";
-    let noun = tabIds.length == 1 ? "tab" : "tabs";
-    if (tabIds.length == 0 || !confirm(`Save ${tabIds.length} ${noun} from ${name}? They’ll close and be listed under Saved.`)) {
+    if (tabIds.length == 0 || !confirm(`Save ${tabCount(tabIds.length)} from ${name}? They’ll close and be listed under Saved.`)) {
       return;
     }
-    return Promise.all(tabIds.map((id) => browser.tabs.get(id)))
-      .then((tabs) => addSaved(name, tabs))
-      .then(() => browser.tabs.remove(tabIds));
+    return getTabs(tabIds).then((records) => saveAction(name, records));
   });
+}
+
+function saveAction(name, records, join = false) {
+  let items = records.map(savedItem);
+  let urls = items.map((item) => item.url);
+  return addSaved(name, items, join).then((meta) => closeTabs(records).then(() => record(
+    `Saved ${tabCount(records.length)}`,
+    () => removeSaved(meta.id, urls).then(() => reopenTabs(records)),
+    () => putSaved(meta, items).then(() => closeTabs(records)),
+  )));
 }
 
 // The "stored" key dates from when this feature was called Store.
@@ -255,36 +365,95 @@ function loadSaved() {
   return browser.storage.local.get({ stored: [] }).then((data) => data.stored);
 }
 
+function savedItem({ url, title, favIconUrl, lastAccessed }) {
+  return { url, title, favIconUrl, lastAccessed };
+}
+
+function groupMeta({ id, name, stored }) {
+  return { id, name, stored };
+}
+
 // Newest group first; a URL is listed once per group. With join, tabs go into the newest group of that name.
-function addSaved(name, tabs, join = false) {
-  let unique = new Map(tabs.map(({ url, title, favIconUrl, lastAccessed }) => [url, { url, title, favIconUrl, lastAccessed }]));
+// Resolves to the group's id, name, and time.
+function addSaved(name, items, join = false) {
   return loadSaved().then((groups) => {
-    let existing = join && groups.find((group) => group.name == name);
-    if (existing) {
-      existing.tabs = [...unique.values(), ...existing.tabs.filter((tab) => !unique.has(tab.url))];
-    } else {
-      groups.unshift({ id: crypto.randomUUID(), name, stored: Date.now(), tabs: [...unique.values()] });
+    let group = join && groups.find((group) => group.name == name);
+    if (!group) {
+      group = { id: crypto.randomUUID(), name, stored: Date.now(), tabs: [] };
+      groups.unshift(group);
     }
-    return browser.storage.local.set({ stored: groups });
+    return putInGroup(groups, group, items);
   });
+}
+
+// Puts sites back into their group, recreating it in date order if it was emptied.
+function putSaved(meta, items) {
+  return loadSaved().then((groups) => {
+    let group = groups.find((group) => group.id == meta.id);
+    if (!group) {
+      group = { ...meta, tabs: [] };
+      groups.push(group);
+      groups.sort((a, b) => b.stored - a.stored);
+    }
+    return putInGroup(groups, group, items);
+  });
+}
+
+function putInGroup(groups, group, items) {
+  let urls = new Set(items.map((item) => item.url));
+  group.tabs = [...new Map(items.map((item) => [item.url, item])).values(), ...group.tabs.filter((tab) => !urls.has(tab.url))];
+  return browser.storage.local.set({ stored: groups }).then(() => groupMeta(group));
 }
 
 // A single saved tab joins its host's group.
 function saveTab(tabId) {
-  browser.tabs.get(tabId)
-    .then((tab) => addSaved(getHost(tab.url), [tab], true))
-    .then(() => browser.tabs.remove(tabId));
+  getTabs([tabId]).then((records) => saveAction(getHost(records[0].url), records, true));
+}
+
+function findSaved(groupId, urls) {
+  return loadSaved().then((groups) => {
+    let group = groups.find((group) => group.id == groupId);
+    return { meta: groupMeta(group), items: group.tabs.filter((tab) => urls.includes(tab.url)) };
+  });
+}
+
+// Resolves to records of the tabs that opened.
+function openSaved(items) {
+  return Promise.allSettled(items.map((item) => browser.tabs.create({ url: item.url, active: false }))).then((results) => {
+    let failed = items.filter((item, i) => results[i].status == "rejected");
+    if (failed.length) {
+      alert(`Couldn’t restore:\n${failed.map((item) => item.url).join("\n")}`);
+    }
+    return results.flatMap((result, i) => result.status == "fulfilled" ? [{ id: result.value.id, url: items[i].url }] : []);
+  });
 }
 
 // Restored URLs leave their group.
-function restoreTabs(groupId, urls) {
-  Promise.allSettled(urls.map((url) => browser.tabs.create({ url, active: false }))).then((results) => {
-    let failed = urls.filter((url, i) => results[i].status == "rejected");
-    if (failed.length) {
-      alert(`Couldn’t restore:\n${failed.join("\n")}`);
+function restoreSaved(groupId, urls) {
+  findSaved(groupId, urls).then(({ meta, items }) => openSaved(items).then((records) => {
+    let opened = new Set(records.map((rec) => rec.url));
+    let restored = items.filter((item) => opened.has(item.url));
+    if (!restored.length) {
+      return;
     }
-    return removeSaved(groupId, urls.filter((url) => !failed.includes(url)));
-  });
+    let restoredUrls = restored.map((item) => item.url);
+    return removeSaved(meta.id, restoredUrls).then(() => record(
+      `Restored ${tabCount(restored.length)}`,
+      () => closeTabs(records).then(() => putSaved(meta, restored)),
+      () => openSaved(restored).then((fresh) => {
+        records = fresh;
+        return removeSaved(meta.id, restoredUrls);
+      }),
+    ));
+  }));
+}
+
+function deleteSaved(groupId, url) {
+  findSaved(groupId, [url]).then(({ meta, items }) => removeSaved(groupId, [url]).then(() => record(
+    "Deleted 1 saved site",
+    () => putSaved(meta, items),
+    () => removeSaved(groupId, [url]),
+  )));
 }
 
 // Empty groups are dropped.
@@ -327,12 +496,12 @@ function renderSavedGroup(group, collapsed) {
   time.className = "saved-time";
   time.dateTime = new Date(group.stored).toISOString();
   time.textContent = new Date(group.stored).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  let resaveAll = document.createElement("button");
-  resaveAll.className = "resave-all";
-  resaveAll.textContent = "Restore all";
+  let restoreAll = document.createElement("button");
+  restoreAll.className = "restore-all";
+  restoreAll.textContent = "Restore all";
   let summary = document.createElement("summary");
   summary.className = "host-header";
-  summary.append(h3, time, resaveAll);
+  summary.append(h3, time, restoreAll);
   let details = document.createElement("details");
   details.className = "card saved-group";
   details.dataset.id = group.id;
@@ -381,13 +550,21 @@ function unloadGroup(button) {
 }
 
 document.addEventListener("click", (e) => {
-  let toggle = e.target.closest("[data-hosts-open]");
-  if (toggle) {
+  let toastAction = e.target.closest(".toast-action");
+  if (toastAction) {
+    toastAction.textContent == "Undo" ? undo() : redo();
+    return;
+  }
+  if (e.target.closest(".toggle-hosts")) {
     // Keep the button from toggling the section.
     e.preventDefault();
-    for (let group of document.querySelectorAll(".host-group")) {
-      group.open = toggle.dataset.hostsOpen == "true";
+    // Collapses everything if any host is open, otherwise expands everything.
+    let groups = [...document.querySelectorAll(".host-group")];
+    let open = !groups.some((group) => group.open);
+    for (let group of groups) {
+      group.open = open;
     }
+    updateToggleLabel();
     return;
   }
   let saveAll = e.target.closest(".save-all");
@@ -397,21 +574,21 @@ document.addEventListener("click", (e) => {
     saveGroup(saveAll.closest("details"));
     return;
   }
-  let resaveAll = e.target.closest(".resave-all");
-  if (resaveAll) {
+  let restoreAll = e.target.closest(".restore-all");
+  if (restoreAll) {
     e.preventDefault();
-    let group = resaveAll.closest(".saved-group");
-    restoreTabs(group.dataset.id, [...group.querySelectorAll("li:not(.filtered-out)")].map((li) => li.dataset.url));
+    let group = restoreAll.closest(".saved-group");
+    restoreSaved(group.dataset.id, [...group.querySelectorAll("li:not(.filtered-out)")].map((li) => li.dataset.url));
     return;
   }
   let restore = e.target.closest(".restore-tab");
   if (restore) {
-    restoreTabs(restore.closest(".saved-group").dataset.id, [restore.closest("li").dataset.url]);
+    restoreSaved(restore.closest(".saved-group").dataset.id, [restore.closest("li").dataset.url]);
     return;
   }
   let remove = e.target.closest(".delete-saved");
   if (remove) {
-    removeSaved(remove.closest(".saved-group").dataset.id, [remove.closest("li").dataset.url]);
+    deleteSaved(remove.closest(".saved-group").dataset.id, remove.closest("li").dataset.url);
     return;
   }
   let unloadAll = e.target.closest(".unload-all");
@@ -428,7 +605,7 @@ document.addEventListener("click", (e) => {
   let tabId = +elt.getAttribute("data-tabid");
   if (e.target.closest(".close-tab")) {
     // The onRemoved handler marks the tab as deleted.
-    browser.tabs.remove(tabId);
+    getTabs([tabId]).then(closeAction);
   } else if (e.target.closest(".save-tab")) {
     saveTab(tabId);
   } else if (e.target.closest(".mute-tab")) {
@@ -448,6 +625,7 @@ function renderTabItem(tab) {
   li.setAttribute("data-tabid", tab.id);
   li.classList.toggle("discarded-tab", tab.discarded);
   li.classList.toggle("active-tab", tab.active);
+  li.classList.toggle("self-tab", tab.url == location.href);
   var favicon = document.createElement("img");
   favicon.classList.add("tab-favicon");
   favicon.alt = "";
@@ -469,10 +647,7 @@ function renderTabItem(tab) {
   pinnedBadge.textContent = "Pinned";
   let unloadedBadge = document.createElement("span");
   unloadedBadge.classList.add("tab-badge", "tab-unloaded");
-  unloadedBadge.title = "Unloaded";
-  unloadedBadge.setAttribute("role", "img");
-  unloadedBadge.setAttribute("aria-label", "Unloaded");
-  unloadedBadge.appendChild(icon(zzzPaths));
+  unloadedBadge.append(icon(zzzPaths), "Unloaded");
   pTitle.append(pinnedBadge, unloadedBadge);
   var titleText = document.createElement("span");
   titleText.classList.add("tab-title-text");
@@ -553,11 +728,11 @@ function setMuted(li, muted) {
   }
 }
 
-// Pinned tabs can't be closed, unloaded, or moved from here, but can be muted.
+// Pinned tabs can't be closed, unloaded, or moved from here, but can be muted; this page can't save itself.
 function setPinned(li, pinned) {
   li.classList.toggle("pinned-tab", pinned);
   for (let button of li.querySelectorAll("button:not(.mute-tab)")) {
-    button.disabled = pinned;
+    button.disabled = pinned || (button.matches(".save-tab") && li.classList.contains("self-tab"));
   }
 }
 
@@ -635,6 +810,21 @@ document.addEventListener("DOMContentLoaded", () => {
 browser.storage.onChanged.addListener((changes) => {
   if (changes.stored) {
     renderSaved();
+  }
+});
+
+// Text fields keep their own undo.
+document.addEventListener("keydown", (e) => {
+  if (!(e.metaKey || e.ctrlKey) || e.altKey || e.target.closest("input, select, textarea")) {
+    return;
+  }
+  let key = e.key.toLowerCase();
+  if (key == "z" && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+  } else if ((key == "z" && e.shiftKey) || key == "y") {
+    e.preventDefault();
+    redo();
   }
 });
 

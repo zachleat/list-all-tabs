@@ -44,7 +44,7 @@
   </details>
 
   <details id="top-hosts" open>
-  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" data-hosts-open="true">Expand all</button> <button type="button" data-hosts-open="false">Collapse all</button></summary>
+  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="toggle-hosts">Collapse all</button></summary>
   <div id="top-hosts-list"></div>
   </details>
 
@@ -52,6 +52,8 @@
   <summary><h2>Saved <span class="count">(<span data-count-of="li" data-count-unit="site"></span>)</span></h2></summary>
   <div id="saved-list" class="cards"></div>
   </details>
+
+  <div id="toast" class="toast" role="status" hidden><span class="toast-text"></span> <button type="button" class="toast-action"></button></div>
 
   <script src="tabs.js"></script>
 </body>
