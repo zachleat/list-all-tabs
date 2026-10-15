@@ -28,7 +28,7 @@
   <summary><h2>Important</h2></summary>
   <div class="cards">
     <section id="dupes" class="card">
-    <div class="host-header"><h3>Duplicate tabs <span class="count">(<span data-count-of="#dupes-tabs-list li"></span><span data-count-of="#dupes-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-zero></span><span data-count-of="#dupes-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h3></div>
+    <div class="host-header"><h3>Duplicate tabs <span class="count">(<span data-count-of="#dupes-tabs-list li"></span><span data-count-of="#dupes-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-zero data-count-hide-same></span><span data-count-of="#dupes-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h3></div>
     <div id="dupes-tabs-list" class="tabs-list"></div>
     </section>
     <section id="audio" class="card">
@@ -39,12 +39,12 @@
   </details>
 
   <details id="all-tabs">
-  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span> <span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all">Unload all</button></summary>
+  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li"></span><span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all">Unload all</button></summary>
   <div id="all-tabs-list" class="tabs-list"></div>
   </details>
 
   <details id="top-hosts" open>
-  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span> <span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs"></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
+  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2></summary>
   <div class="host-toggles">
     <button type="button" data-hosts-open="true">Expand all</button>
     <button type="button" data-hosts-open="false">Collapse all</button>

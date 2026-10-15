@@ -108,7 +108,7 @@ summary:has(> h2 + button) h2 {
 }
 
 /* Separator lives here so it hides with the count. */
-[data-count-hide-zero]::before {
+[data-count-icon]::before {
   content: " ";
 }
 

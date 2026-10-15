@@ -97,12 +97,13 @@ function updateTabsLists() {
       loadedCount.dataset.countOf = "li:not(.discarded-tab)";
       loadedCount.dataset.countIcon = "●";
       loadedCount.title = "Loaded tabs";
+      loadedCount.dataset.countHideSame = "";
       let unloadedCount = document.createElement("span");
       unloadedCount.dataset.countOf = "li.discarded-tab";
       unloadedCount.dataset.countIcon = "○";
       unloadedCount.title = "Unloaded tabs";
       unloadedCount.dataset.countHideZero = "";
-      count.append("(", countValue, " ", loadedCount, unloadedCount, ")");
+      count.append("(", countValue, loadedCount, unloadedCount, ")");
       h3.appendChild(count);
       let unloadAll = document.createElement("button");
       unloadAll.className = "unload-all";
@@ -166,12 +167,18 @@ function applyFilter() {
 }
 
 // Counts are scoped to the enclosing section; closed and filtered tabs are not counted, hidden ones are.
+function countItems(count) {
+  return count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab, .filtered-out)`);
+}
+
+// data-count-hide-same hides a count that matches the total just before it.
 function updateCounts() {
   for (let count of document.querySelectorAll("[data-count-of]")) {
-    let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab, .filtered-out)`);
+    let items = countItems(count);
     let unit = count.dataset.countUnit;
     let icon = count.dataset.countIcon;
-    count.hidden = "countHideZero" in count.dataset && items.length == 0;
+    count.hidden = ("countHideZero" in count.dataset && items.length == 0) ||
+      ("countHideSame" in count.dataset && items.length == countItems(count.previousElementSibling).length);
     if (unit) {
       count.textContent = `${items.length} ${unit}${items.length == 1 ? "" : "s"}`;
     } else if (icon) {
