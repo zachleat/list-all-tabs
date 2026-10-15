@@ -91,11 +91,11 @@ summary h2 {
 summary:has(> h2 + button) {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 summary:has(> h2 + button)::before {
-  margin-right: calc(0.75em - 1rem);
+  margin-right: calc(0.75em - 0.5rem);
   margin-bottom: 0;
 }
 
@@ -277,10 +277,6 @@ ul.tabs-list {
   background-color: var(--container-color);
 }
 
-.pinned-tab {
-  opacity: 0.6;
-}
-
 .deleted-tab {
   opacity: 0.45;
   background-color: var(--danger-soft);
@@ -331,9 +327,9 @@ button:hover:not(:disabled) {
 .tabs-list .close-tab,
 .tabs-list .save-tab,
 .tabs-list .unload-tab,
-.unload-all,
+.host-header .unload-all,
 .save-all,
-.host-header .close-tab {
+.close-all {
   padding: 0.525em 0.55em;
 }
 
@@ -374,7 +370,7 @@ button svg,
 .unload-all,
 .save-all,
 .restore-all,
-.host-header .close-tab {
+.close-all {
   color: var(--accent-text);
   border-color: var(--accent);
   background-color: var(--accent);
@@ -384,7 +380,7 @@ button svg,
 .unload-all:hover,
 .save-all:hover,
 .restore-all:hover,
-.host-header .close-tab:hover {
+.close-all:hover {
   color: var(--accent-text);
   border-color: var(--accent);
   filter: brightness(1.1);

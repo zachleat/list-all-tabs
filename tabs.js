@@ -124,7 +124,7 @@ function updateTabsLists() {
       saveAll.setAttribute("aria-label", "Save all");
       saveAll.append(icon(floppyPaths));
       let closeAll = document.createElement("button");
-      closeAll.className = "close-tab";
+      closeAll.className = "close-tab close-all";
       closeAll.title = "Close all";
       closeAll.setAttribute("aria-label", "Close all");
       closeAll.append(icon(trashPaths));
@@ -136,8 +136,8 @@ function updateTabsLists() {
       let summary = document.createElement("summary");
       summary.className = "host-header";
       summary.appendChild(h3);
-      summary.appendChild(moveAll);
       summary.appendChild(unloadAll);
+      summary.appendChild(moveAll);
       summary.appendChild(saveAll);
       summary.appendChild(closeAll);
 
@@ -350,7 +350,7 @@ function saveGroup(section) {
         .map((li) => +li.dataset.tabid)
         .filter((id) => id != self?.id)
     )];
-    let name = section.dataset.host ?? "All tabs";
+    let name = section.dataset.host;
     if (tabIds.length == 0 || !confirm(`Save ${tabCount(tabIds.length)} from ${name}? They’ll close and be listed under Saved.`)) {
       return;
     }
