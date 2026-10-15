@@ -24,11 +24,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Single-column list stays readable width; everything else spans the window. */
-#dupes {
-  max-width: 1100px;
-}
-
 h1 {
   display: flex;
   align-items: center;
@@ -287,9 +282,10 @@ ul.tabs-list {
 
 .deleted-tab .close-tab,
 .deleted-tab .unload-tab,
+.deleted-tab .mute-tab,
 .discarded-tab .unload-tab,
 .active-tab .unload-tab,
-.pinned-tab button {
+.pinned-tab button:not(.mute-tab) {
   display: none;
 }
 
@@ -347,15 +343,31 @@ button:hover {
   column-gap: 0.75rem;
 }
 
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(28rem, 100%), 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.card {
+  margin: 0;
+}
+
 .host-group {
   margin: 0 0 0.75rem;
   break-inside: avoid;
+}
+
+.host-group,
+.card {
   border: 1px solid var(--border);
   border-radius: 10px;
   background-color: var(--surface);
 }
 
-.host-group .tabs-list {
+.host-group .tabs-list,
+.card .tabs-list {
   margin: 0;
   padding: 0 0.4rem 0.4rem;
 }

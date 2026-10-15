@@ -51,6 +51,12 @@ function updateTabsLists() {
 
     document.getElementById("all-tabs-list").replaceChildren(allTabsList);
 
+    let audioList = document.createElement("ul");
+    for (let tab of tabs.filter((tab) => tab.audible)) {
+      audioList.appendChild(renderTabItem(tab));
+    }
+    document.getElementById("audio-tabs-list").replaceChildren(audioList);
+
     let topHosts = Object.keys(hosts).sort((a, b) => hosts[b].length - hosts[a].length);
     let topDupes = Object.keys(dupes).sort((a, b) => dupes[b].length - dupes[a].length);
 
@@ -64,7 +70,9 @@ function updateTabsLists() {
       }
     }
     document.getElementById("dupes-tabs-list").replaceChildren(dupesList);
+    document.getElementById("audio").hidden = !audioList.childElementCount;
     document.getElementById("dupes").hidden = !dupesList.childElementCount;
+    document.getElementById("important").hidden = !audioList.childElementCount && !dupesList.childElementCount;
 
     let topHostsList = document.getElementById("top-hosts-list");
     topHostsList.replaceChildren();
@@ -234,6 +242,8 @@ document.addEventListener("click", (e) => {
   if (e.target.closest(".close-tab")) {
     // The onRemoved handler marks the tab as deleted.
     browser.tabs.remove(tabId);
+  } else if (e.target.closest(".mute-tab")) {
+    browser.tabs.get(tabId).then((tab) => browser.tabs.update(tabId, { muted: !tab.mutedInfo.muted }));
   } else if (e.target.closest(".unload-tab")) {
     // The onUpdated handler marks the tab as discarded.
     browser.tabs.discard(tabId);
@@ -298,6 +308,12 @@ function renderTabItem(tab) {
     accessed.textContent = ago.short;
     li.appendChild(accessed);
   }
+  if (tab.audible) {
+    let mute = document.createElement("button");
+    mute.classList.add("mute-tab");
+    li.appendChild(mute);
+    setMuted(li, tab.mutedInfo.muted);
+  }
   li.appendChild(unload);
   li.appendChild(close);
   setPinned(li, tab.pinned);
@@ -314,10 +330,17 @@ function setFavicon(img, url) {
   }
 }
 
-// Pinned tabs can't be closed, unloaded, or moved from here.
+function setMuted(li, muted) {
+  let mute = li.querySelector(".mute-tab");
+  if (mute) {
+    mute.textContent = muted ? "Unmute" : "Mute";
+  }
+}
+
+// Pinned tabs can't be closed, unloaded, or moved from here, but can be muted.
 function setPinned(li, pinned) {
   li.classList.toggle("pinned-tab", pinned);
-  for (let button of li.querySelectorAll("button")) {
+  for (let button of li.querySelectorAll("button:not(.mute-tab)")) {
     button.disabled = pinned;
   }
 }
@@ -401,8 +424,8 @@ browser.tabs.onActivated.addListener(({ tabId, previousTabId }) => {
 });
 
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url || changeInfo.pinned != null) {
-    // A new URL can change the tab's groups; pinning changes its position.
+  if (changeInfo.url || changeInfo.pinned != null || changeInfo.audible != null) {
+    // A new URL can change the tab's groups; pinning changes its position; audio changes its sections.
     scheduleRender();
     return;
   }
@@ -413,6 +436,7 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
     elt.classList.toggle("discarded-tab", tab.discarded);
     setPinned(elt, tab.pinned);
+    setMuted(elt, tab.mutedInfo.muted);
   }
   applyFilter();
-}, { properties: ["title", "url", "discarded", "pinned", "favIconUrl"] });
+}, { properties: ["title", "url", "discarded", "pinned", "favIconUrl", "audible", "mutedInfo"] });
