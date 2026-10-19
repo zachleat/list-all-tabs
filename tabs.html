@@ -38,19 +38,29 @@
   </div>
   </details>
 
+  <details id="top-hosts" open>
+  <summary><h2>Top sites <span class="count">(<span data-count-of=".host-group" data-count-unit="site"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span><span data-count-of=".host-group li" data-count-by="windowid" data-count-icon="window" title="Windows" data-count-hide-zero></span>)</span></h2> <button type="button" class="toggle-groups">Collapse all</button></summary>
+  <div id="top-hosts-list"></div>
+  </details>
+
   <details id="all-tabs">
-  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li" data-count-unit="tab"></span><span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h7l-7 8h7"/><path d="M12 6h5l-5 6h5"/><path d="M18 2h3l-3 4h3"/></svg>Unload all</button></summary>
+  <summary><h2>All tabs <span class="count">(<span data-count-of="#all-tabs-list li" data-count-unit="tab"></span><span data-count-of="#all-tabs-list li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of="#all-tabs-list li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span><span data-count-of="#all-tabs-list li" data-count-by="windowid" data-count-icon="window" title="Windows" data-count-hide-zero></span>)</span></h2> <button type="button" class="unload-all"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h7l-7 8h7"/><path d="M12 6h5l-5 6h5"/><path d="M18 2h3l-3 4h3"/></svg>Unload all</button></summary>
   <div id="all-tabs-list" class="tabs-list"></div>
   </details>
 
-  <details id="top-hosts" open>
-  <summary><h2>Top hosts <span class="count">(<span data-count-of=".host-group" data-count-unit="host"></span>, <span data-count-of=".host-group li" data-count-unit="tab"></span><span data-count-of=".host-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".host-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="toggle-hosts">Collapse all</button></summary>
-  <div id="top-hosts-list"></div>
+  <details id="all-windows">
+  <summary><h2>All windows <span class="count">(<span data-count-of=".window-group" data-count-unit="window"></span>, <span data-count-of=".window-group li" data-count-unit="tab"></span><span data-count-of=".window-group li:not(.discarded-tab)" data-count-icon="●" title="Loaded tabs" data-count-hide-same></span><span data-count-of=".window-group li.discarded-tab" data-count-icon="○" title="Unloaded tabs" data-count-hide-zero></span>)</span></h2> <button type="button" class="toggle-groups">Collapse all</button></summary>
+  <div id="all-windows-list"></div>
   </details>
 
   <details id="saved" open hidden>
   <summary><h2>Saved <span class="count">(<span data-count-of="li" data-count-unit="site"></span>)</span></h2></summary>
   <div id="saved-list" class="cards"></div>
+  </details>
+
+  <details id="recently-closed" hidden>
+  <summary><h2>Recently closed <span class="count">(<span data-count-of="li" data-count-unit="tab"></span> from the last 7 days)</span></h2></summary>
+  <div id="recently-closed-list"></div>
   </details>
 
   <p class="note">To see CPU and memory use for each tab, open <code>about:processes</code> <button type="button" class="copy-processes" title="Copy" aria-label="Copy about:processes"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button> in the address bar.</p>

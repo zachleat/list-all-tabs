@@ -142,6 +142,18 @@ summary:has(> h2 + button) h2 {
   color: var(--unloaded);
 }
 
+.count-icon svg {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .sort {
   display: flex;
   flex-wrap: wrap;
@@ -302,7 +314,8 @@ ul.tabs-list {
 }
 
 .tabs-list li.deleted-tab,
-.saved-group li {
+.saved-group li,
+#recently-closed li {
   cursor: default;
 }
 
@@ -410,6 +423,13 @@ button svg,
   column-gap: 0.75rem;
 }
 
+#recently-closed-list {
+  margin-top: 0.75rem;
+  columns: 2 28rem;
+  column-gap: 0.75rem;
+}
+
+#all-windows-list,
 #top-hosts-list {
   margin-top: 0.75rem;
   columns: 3 28rem;
@@ -436,12 +456,16 @@ button svg,
   color: var(--muted);
 }
 
-.host-group {
+.host-group,
+.window-group,
+.closed-group {
   margin: 0 0 0.75rem;
   break-inside: avoid;
 }
 
 .host-group,
+.window-group,
+.closed-group,
 .card {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -449,6 +473,8 @@ button svg,
 }
 
 .host-group .tabs-list,
+.window-group .tabs-list,
+.closed-group .tabs-list,
 .card .tabs-list {
   margin: 0;
   padding: 0 0.4rem 0.4rem;
@@ -511,5 +537,9 @@ button svg,
 
 /* Keeps find-in-page from matching (and opening) the collapsed All tabs list. */
 #all-tabs:not([open]) > #all-tabs-list {
+  display: none;
+}
+
+details:not([open]) > summary > .toggle-groups {
   display: none;
 }

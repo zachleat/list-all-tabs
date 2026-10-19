@@ -28,3 +28,47 @@ function handleClick() {
 }
 
 browser.action.onClicked.addListener(handleClick);
+
+// Firefox leaves the container out of closed tab data, so open container tabs are tracked and logged as they close.
+// This page can be unloaded between events, so the open tabs live in session storage.
+var trackQueue = Promise.resolve();
+function track(change) {
+  trackQueue = trackQueue
+    .then(() => browser.storage.session.get({ containerTabs: {} }))
+    .then(({ containerTabs }) => change(containerTabs))
+    .then((containerTabs) => browser.storage.session.set({ containerTabs }))
+    .catch(() => {});
+}
+
+function inContainer(tab) {
+  return tab.cookieStoreId && tab.cookieStoreId != "firefox-default" && !tab.incognito;
+}
+
+function trackAll() {
+  browser.tabs.query({}).then((tabs) => track(() => Object.fromEntries(
+    tabs.filter(inContainer).map((tab) => [tab.id, { url: tab.url, cookieStoreId: tab.cookieStoreId }])
+  )));
+}
+
+function trackTab(tab) {
+  if (inContainer(tab)) {
+    track((tabs) => ({ ...tabs, [tab.id]: { url: tab.url, cookieStoreId: tab.cookieStoreId } }));
+  }
+}
+
+browser.runtime.onStartup.addListener(trackAll);
+browser.runtime.onInstalled.addListener(trackAll);
+browser.tabs.onCreated.addListener(trackTab);
+browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => trackTab(tab), { properties: ["url"] });
+
+// Tabs in a closing window aren't listed as recently closed tabs.
+browser.tabs.onRemoved.addListener((tabId, { isWindowClosing }) => track((tabs) => {
+  let closed = tabs[tabId];
+  delete tabs[tabId];
+  if (!closed || isWindowClosing) {
+    return tabs;
+  }
+  return browser.storage.local.get({ closedContainers: [] }).then(({ closedContainers }) => browser.storage.local.set({
+    closedContainers: [...closedContainers, { ...closed, closed: Date.now() }].slice(-200),
+  })).then(() => tabs);
+}));

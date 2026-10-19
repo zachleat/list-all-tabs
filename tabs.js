@@ -18,14 +18,14 @@ function getHost(tabUrl) {
 }
 
 function updateTabsLists() {
-  loadContainers().then(() => browser.tabs.query({})).then((tabs) => {
+  Promise.all([loadContainers(), suffixesReady]).then(() => browser.tabs.query({})).then((tabs) => {
     tabs = tabs.filter((tab) => !tab.url.startsWith("about:blank"));
     var dupes = {};
     var hosts = {};
     let collapsedHosts = new Set(
       [...document.querySelectorAll(".host-group:not([open])")].map((group) => group.dataset.host)
     );
-    // Hosts already listed stay listed until their last tab closes.
+    // Sites already listed stay listed until their last tab closes.
     let shownHosts = new Set(
       [...document.querySelectorAll(".host-group")].map((group) => group.dataset.host)
     );
@@ -41,15 +41,25 @@ function updateTabsLists() {
     tabs.sort((a, b) => a.pinned - b.pinned);
 
     let allTabsList = document.createElement("ul");
+    let windows = {};
+    let collapsedWindows = new Set(
+      [...document.querySelectorAll(".window-group:not([open])")].map((group) => group.dataset.windowid)
+    );
 
     for (let tab of tabs) {
+      (windows[tab.windowId] ??= []).push(tab);
       // Same URL in different containers is not a duplicate.
       (dupes[`${tab.cookieStoreId} ${tab.url}`] ??= []).push(tab);
-      (hosts[getHost(tab.url)] ??= []).push(tab);
+      (hosts[getSite(tab.url)] ??= []).push(tab);
       allTabsList.appendChild(renderTabItem(tab));
     }
 
     document.getElementById("all-tabs-list").replaceChildren(allTabsList);
+    // Windows are listed in the order they opened.
+    let windowIds = Object.keys(windows).sort((a, b) => a - b);
+    document.getElementById("all-windows-list").replaceChildren(
+      ...windowIds.map((id) => renderWindowGroup(id, windows[id], collapsedWindows))
+    );
 
     let audioList = document.createElement("ul");
     for (let tab of tabs.filter((tab) => tab.audible)) {
@@ -88,28 +98,8 @@ function updateTabsLists() {
       }
 
       let h3 = document.createElement("h3");
-      h3.textContent = `${host} `;
-      let count = document.createElement("span");
-      count.className = "count";
-      let countValue = document.createElement("span");
-      countValue.dataset.countOf = "li";
-      let loadedCount = document.createElement("span");
-      loadedCount.dataset.countOf = "li:not(.discarded-tab)";
-      loadedCount.dataset.countIcon = "●";
-      loadedCount.title = "Loaded tabs";
-      loadedCount.dataset.countHideSame = "";
-      let unloadedCount = document.createElement("span");
-      unloadedCount.dataset.countOf = "li.discarded-tab";
-      unloadedCount.dataset.countIcon = "○";
-      unloadedCount.title = "Unloaded tabs";
-      unloadedCount.dataset.countHideZero = "";
-      count.append("(", countValue, loadedCount, unloadedCount, ")");
-      h3.appendChild(count);
-      let unloadAll = document.createElement("button");
-      unloadAll.className = "unload-all";
-      unloadAll.title = "Unload all";
-      unloadAll.setAttribute("aria-label", "Unload all");
-      unloadAll.append(icon(zzzPaths));
+      h3.append(`${host} `, groupCount(true));
+      let unloadAll = unloadAllButton();
       let moveAll = document.createElement("button");
       moveAll.className = "move-all";
       moveAll.append(icon(mergePaths), "Merge");
@@ -123,16 +113,7 @@ function updateTabsLists() {
       saveAll.title = "Save all: close these tabs and keep them under Saved";
       saveAll.setAttribute("aria-label", "Save all");
       saveAll.append(icon(floppyPaths));
-      let closeAll = document.createElement("button");
-      closeAll.className = "close-tab close-all";
-      closeAll.title = "Close all";
-      closeAll.setAttribute("aria-label", "Close all");
-      closeAll.append(icon(trashPaths));
-      closeAll.addEventListener("click", (e) => {
-        // Keep the button from toggling the group.
-        e.preventDefault();
-        closeGroup(host, tabList);
-      });
+      let closeAll = closeAllButton(host, tabList);
       let summary = document.createElement("summary");
       summary.className = "host-header";
       summary.appendChild(h3);
@@ -155,15 +136,93 @@ function updateTabsLists() {
   });
 }
 
-// Names the action Toggle all will take next.
+// A card's tab counts, with how many windows its tabs are in when withWindows is set.
+function groupCount(withWindows) {
+  let count = document.createElement("span");
+  count.className = "count";
+  let countValue = document.createElement("span");
+  countValue.dataset.countOf = "li";
+  let loadedCount = document.createElement("span");
+  loadedCount.dataset.countOf = "li:not(.discarded-tab)";
+  loadedCount.dataset.countIcon = "●";
+  loadedCount.title = "Loaded tabs";
+  loadedCount.dataset.countHideSame = "";
+  let unloadedCount = document.createElement("span");
+  unloadedCount.dataset.countOf = "li.discarded-tab";
+  unloadedCount.dataset.countIcon = "○";
+  unloadedCount.title = "Unloaded tabs";
+  unloadedCount.dataset.countHideZero = "";
+  count.append("(", countValue, loadedCount, unloadedCount);
+  if (withWindows) {
+    let windowCount = document.createElement("span");
+    windowCount.dataset.countOf = "li";
+    windowCount.dataset.countBy = "windowid";
+    windowCount.dataset.countIcon = "window";
+    windowCount.title = "Windows";
+    windowCount.dataset.countHideZero = "";
+    count.append(windowCount);
+  }
+  count.append(")");
+  return count;
+}
+
+function unloadAllButton() {
+  let unloadAll = document.createElement("button");
+  unloadAll.className = "unload-all";
+  unloadAll.title = "Unload all";
+  unloadAll.setAttribute("aria-label", "Unload all");
+  unloadAll.append(icon(zzzPaths));
+  return unloadAll;
+}
+
+function closeAllButton(name, tabList) {
+  let closeAll = document.createElement("button");
+  closeAll.className = "close-tab close-all";
+  closeAll.title = "Close all";
+  closeAll.setAttribute("aria-label", "Close all");
+  closeAll.append(icon(trashPaths));
+  closeAll.addEventListener("click", (e) => {
+    // Keep the button from toggling the group.
+    e.preventDefault();
+    closeGroup(name, tabList);
+  });
+  return closeAll;
+}
+
+function renderWindowGroup(windowId, tabs, collapsed) {
+  let tabList = document.createElement("ul");
+  tabList.className = "tabs-list";
+  for (let tab of tabs) {
+    tabList.appendChild(renderTabItem(tab));
+  }
+  let h3 = document.createElement("h3");
+  h3.append(tabs[0].incognito ? "Private " : "", groupCount(false));
+  let summary = document.createElement("summary");
+  summary.className = "host-header";
+  summary.append(h3, unloadAllButton(), closeAllButton("this window", tabList));
+  let group = document.createElement("details");
+  group.className = "window-group";
+  group.dataset.windowid = windowId;
+  group.open = !collapsed.has(windowId);
+  group.append(summary, tabList);
+  return group;
+}
+
+// A toggle button acts on the cards in its own section.
+function toggleGroups(button) {
+  return [...button.closest("details").querySelectorAll(":scope > div details")];
+}
+
+// Names the action each Toggle all button will take next.
 function updateToggleLabel() {
-  let anyOpen = [...document.querySelectorAll(".host-group")].some((group) => group.open);
-  document.querySelector(".toggle-hosts").textContent = anyOpen ? "Collapse all" : "Expand all";
+  for (let button of document.querySelectorAll(".toggle-groups")) {
+    button.textContent = toggleGroups(button).some((group) => group.open) ? "Collapse all" : "Expand all";
+  }
 }
 
 // Toggle events don't bubble, so this listens during capture.
 document.addEventListener("toggle", (e) => {
-  if (e.target.matches(".host-group")) {
+  if (e.target.matches(".host-group, .window-group")) {
     updateToggleLabel();
   }
 }, true);
@@ -183,18 +242,31 @@ function applyFilter() {
     li.classList.toggle("filtered-out", filtered);
     li.classList.toggle("hidden-tab", !filtered && countedClasses.some((name) => li.classList.contains(name)));
   }
-  for (let group of document.querySelectorAll(".host-group, .saved-group")) {
+  for (let group of document.querySelectorAll(".host-group, .window-group, .saved-group, .closed-group")) {
     group.classList.toggle("filtered-out", !group.querySelector("li:not(.filtered-out)"));
     group.classList.toggle("hidden-tab", !group.querySelector("li:not(.filtered-out, .hidden-tab)"));
   }
   updateCounts();
 }
 
+// Filtering opens Recently closed while it has matches and closes it again once the filter is cleared.
+function openForFilter() {
+  let section = document.getElementById("recently-closed");
+  let filtering = document.getElementById("filter").value.trim() != "";
+  if (filtering && !section.open && section.querySelector(".tabs-list li:not(.filtered-out)")) {
+    section.open = true;
+    section.dataset.openedByFilter = "";
+  } else if (!filtering && "openedByFilter" in section.dataset) {
+    section.open = false;
+    delete section.dataset.openedByFilter;
+  }
+}
+
 // Counts are scoped to the enclosing section; closed and filtered tabs are not counted, hidden ones are.
 function countItems(count) {
   let items = count.closest("details").querySelectorAll(`${count.dataset.countOf}:not(.deleted-tab, .filtered-out)`);
-  // A tab listed twice in one section (like in both Important cards) counts once.
-  return new Set([...items].map((item) => item.dataset.tabid ?? item)).size;
+  // A tab listed twice in one section (like in both Important cards) counts once; data-count-by counts another field, like windows.
+  return new Set([...items].map((item) => item.dataset[count.dataset.countBy ?? "tabid"] ?? item)).size;
 }
 
 // data-count-hide-same hides a count that matches the total just before it.
@@ -202,19 +274,23 @@ function updateCounts() {
   for (let count of document.querySelectorAll("[data-count-of]")) {
     let total = countItems(count);
     let unit = count.dataset.countUnit;
-    let icon = count.dataset.countIcon;
+    let iconName = count.dataset.countIcon;
     count.hidden = ("countHideZero" in count.dataset && total == 0) ||
       ("countHideSame" in count.dataset && total == countItems(count.previousElementSibling));
     if (unit) {
       count.textContent = `${total} ${unit}${total == 1 ? "" : "s"}`;
-    } else if (icon) {
+    } else if (iconName) {
       let iconSpan = document.createElement("span");
       iconSpan.className = "count-icon";
-      iconSpan.textContent = icon;
+      iconSpan.append(iconName == "window" ? icon(windowPaths) : iconName);
       count.replaceChildren(iconSpan, ` ${total}`);
     } else {
       count.textContent = total;
     }
+  }
+  // Card counts hide for a single tab.
+  for (let wrapper of document.querySelectorAll("h3 > .count")) {
+    wrapper.hidden = countItems(wrapper.querySelector("[data-count-of]")) == 1;
   }
 }
 
@@ -290,10 +366,21 @@ function closeTabs(records) {
   return Promise.allSettled(records.map((rec) => browser.tabs.remove(rec.id)));
 }
 
+// Firefox leaves the container out, so it comes from what background.js logged when the tab closed; newest first.
+function getClosedTabs() {
+  return Promise.all([browser.sessions.getRecentlyClosed(), browser.storage.local.get({ closedContainers: [] })]).then(([closed, { closedContainers }]) => {
+    let log = [...closedContainers];
+    return closed.filter((entry) => entry.tab).map(({ tab, lastModified }) => {
+      let match = log.findIndex((rec) => rec.url == tab.url && Math.abs(rec.closed - lastModified) < 2000);
+      let logged = match >= 0 ? log.splice(match, 1)[0].cookieStoreId : null;
+      return { ...tab, closedAt: lastModified, cookieStoreId: logged ?? (tab.incognito ? "firefox-private" : "firefox-default") };
+    });
+  });
+}
+
 // Prefers Firefox's recently closed tabs, which keep back/forward history, then puts this page back in front.
 function reopenTabs(records) {
-  return Promise.all([browser.tabs.getCurrent(), browser.sessions.getRecentlyClosed()]).then(([self, closed]) => {
-    let closedTabs = closed.filter((entry) => entry.tab).map((entry) => entry.tab);
+  return Promise.all([browser.tabs.getCurrent(), getClosedTabs()]).then(([self, closedTabs]) => {
     let reopenAll = records.reduce((chain, rec) => chain.then(() => {
       let match = closedTabs.findIndex((tab) => tab.url == rec.url && tab.cookieStoreId == rec.cookieStoreId);
       let reopened = match >= 0
@@ -420,9 +507,9 @@ function putInGroup(groups, group, items) {
   return browser.storage.local.set({ stored: groups }).then(() => groupMeta(group));
 }
 
-// A single saved tab joins its host's group.
+// A single saved tab joins its site's group.
 function saveTab(tabId) {
-  getTabs([tabId]).then((records) => saveAction(getHost(records[0].url), records, true));
+  getTabs([tabId]).then((records) => saveAction(getSite(records[0].url), records, true));
 }
 
 function findSaved(groupId, keys) {
@@ -562,6 +649,151 @@ function renderSavedTab(tab) {
   return li;
 }
 
+// Shows up to 50 tabs closed in the last 7 days, one per site, grouped by site in order of their newest tab; closed windows are left out.
+function renderRecentlyClosed() {
+  let collapsed = new Set(
+    [...document.querySelectorAll(".closed-group:not([open])")].map((group) => group.dataset.host)
+  );
+  Promise.all([getClosedTabs(), loadContainers(), suffixesReady]).then(([closedTabs]) => {
+    let hosts = new Map();
+    let seen = new Set();
+    for (let tab of closedTabs) {
+      if (tab.closedAt < Date.now() - 6048e5) {
+        break;
+      }
+      let key = `${tab.cookieStoreId} ${tab.url}`;
+      if (tab.url == "about:newtab" || tab.url.startsWith("about:blank") || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      let host = getSite(tab.url);
+      if (!hosts.has(host)) {
+        hosts.set(host, document.createElement("ul"));
+      }
+      hosts.get(host).appendChild(renderClosedTab(tab));
+      if (seen.size == 50) {
+        break;
+      }
+    }
+    let groups = [...hosts].map(([host, tabList]) => renderClosedGroup(host, tabList, collapsed));
+    document.getElementById("recently-closed-list").replaceChildren(...groups);
+    document.getElementById("recently-closed").hidden = !groups.length;
+    applyFilter();
+  });
+}
+
+// Public Suffix List rules from publicsuffix.org; Unicode rules are stored in the punycode form URLs use.
+var suffixes = { rules: new Set(), wildcards: new Set(), exceptions: new Set() };
+var suffixesReady = fetch("public_suffix_list.dat").then((res) => res.text()).then((text) => {
+  for (let line of text.split("\n")) {
+    let rule = line.trim();
+    if (!rule || rule.startsWith("//")) {
+      continue;
+    }
+    let set = suffixes.rules;
+    if (rule.startsWith("!")) {
+      set = suffixes.exceptions;
+      rule = rule.slice(1);
+    } else if (rule.startsWith("*.")) {
+      set = suffixes.wildcards;
+      rule = rule.slice(2);
+    }
+    if (/[^\x00-\x7f]/.test(rule)) {
+      rule = new URL(`http://${rule}`).hostname;
+    }
+    set.add(rule);
+  }
+}).catch(() => {});
+
+// The registrable domain (mail.google.com → google.com, a.b.co.uk → b.co.uk, foo.github.io stays); each extension has its own host, so their pages share one group.
+function getSite(tabUrl) {
+  if (tabUrl.startsWith("moz-extension:")) {
+    return "moz-extension:";
+  }
+  let host;
+  try {
+    host = new URL(tabUrl).hostname;
+  } catch {}
+  if (!host || /^[\d.]+$|^\[/.test(host)) {
+    return getHost(tabUrl);
+  }
+  let labels = host.split(".");
+  // The longest matching rule wins; unlisted endings count as one-label suffixes.
+  let suffixLength = 1;
+  for (let i = 0; i < labels.length; i++) {
+    let rest = labels.slice(i).join(".");
+    if (suffixes.exceptions.has(rest)) {
+      suffixLength = labels.length - i - 1;
+      break;
+    }
+    if (suffixes.rules.has(rest) || (i + 1 < labels.length && suffixes.wildcards.has(labels.slice(i + 1).join(".")))) {
+      suffixLength = labels.length - i;
+      break;
+    }
+  }
+  return labels.slice(-Math.min(suffixLength + 1, labels.length)).join(".");
+}
+
+function renderClosedGroup(host, tabList, collapsed) {
+  tabList.className = "tabs-list";
+  let h3 = document.createElement("h3");
+  h3.textContent = `${host} `;
+  let count = document.createElement("span");
+  count.className = "count";
+  let countValue = document.createElement("span");
+  countValue.dataset.countOf = "li";
+  count.append("(", countValue, ")");
+  h3.appendChild(count);
+  let summary = document.createElement("summary");
+  summary.className = "host-header";
+  summary.appendChild(h3);
+  let group = document.createElement("details");
+  group.className = "closed-group";
+  group.dataset.host = host;
+  group.open = !collapsed.has(host);
+  group.append(summary, tabList);
+  return group;
+}
+
+function renderClosedTab(tab) {
+  let li = document.createElement("li");
+  li.dataset.sessionId = tab.sessionId;
+  let favicon = document.createElement("img");
+  favicon.classList.add("tab-favicon");
+  favicon.alt = "";
+  setFavicon(favicon, tab.favIconUrl);
+  let pTitle = document.createElement("p");
+  pTitle.classList.add("tab-title");
+  let label = containerLabel(containers[tab.cookieStoreId]);
+  if (label) {
+    pTitle.appendChild(label);
+  }
+  let titleText = document.createElement("span");
+  titleText.classList.add("tab-title-text");
+  titleText.textContent = tab.title;
+  pTitle.appendChild(titleText);
+  let pURL = document.createElement("p");
+  pURL.classList.add("tab-url");
+  pURL.textContent = tab.url;
+  let info = document.createElement("div");
+  info.classList.add("tab-info");
+  info.append(pTitle, pURL);
+  let restore = document.createElement("button");
+  restore.classList.add("restore-closed");
+  restore.textContent = "Restore";
+  li.append(favicon, info, accessedPill(tab.closedAt, true, "Closed"), restore);
+  return li;
+}
+
+// Reopens in its old spot with its history, then puts this page back in front.
+function restoreClosed(sessionId) {
+  Promise.all([browser.tabs.getCurrent(), browser.sessions.restore(sessionId)])
+    .then(([self, session]) => getTabs([session.tab.id]).then((records) => {
+      record("Restored 1 tab", () => closeTabs(records), () => reopenTabs(records));
+      return self && browser.tabs.update(self.id, { active: true });
+    }));
+}
+
 // Unloads every open tab in the button's section; Firefox skips active tabs.
 function unloadGroup(button) {
   let tabIds = [...button.closest("details").querySelectorAll("li:not(.deleted-tab, .discarded-tab, .pinned-tab, .filtered-out)")]
@@ -580,11 +812,12 @@ document.addEventListener("click", (e) => {
     toastAction.textContent == "Undo" ? undo() : redo();
     return;
   }
-  if (e.target.closest(".toggle-hosts")) {
+  let toggle = e.target.closest(".toggle-groups");
+  if (toggle) {
     // Keep the button from toggling the section.
     e.preventDefault();
-    // Collapses everything if any host is open, otherwise expands everything.
-    let groups = [...document.querySelectorAll(".host-group")];
+    // Collapses every card if any is open, otherwise expands them all.
+    let groups = toggleGroups(toggle);
     let open = !groups.some((group) => group.open);
     for (let group of groups) {
       group.open = open;
@@ -614,6 +847,11 @@ document.addEventListener("click", (e) => {
   let remove = e.target.closest(".delete-saved");
   if (remove) {
     deleteSaved(remove.closest(".saved-group").dataset.id, remove.closest("li").dataset.key);
+    return;
+  }
+  let reopen = e.target.closest(".restore-closed");
+  if (reopen) {
+    restoreClosed(reopen.closest("li").dataset.sessionId);
     return;
   }
   let unloadAll = e.target.closest(".unload-all");
@@ -648,6 +886,7 @@ document.addEventListener("click", (e) => {
 function renderTabItem(tab) {
   var li = document.createElement("li");
   li.setAttribute("data-tabid", tab.id);
+  li.dataset.windowid = tab.windowId;
   li.classList.toggle("discarded-tab", tab.discarded);
   li.classList.toggle("active-tab", tab.active);
   li.classList.toggle("self-tab", tab.url == location.href);
@@ -717,6 +956,7 @@ function renderTabItem(tab) {
 var trashPaths = ["M3 6h18", "M8 6V4h8v2", "M19 6l-1 14H6L5 6", "M10 11v6", "M14 11v6"];
 var zzzPaths = ["M3 12h7l-7 8h7", "M12 6h5l-5 6h5", "M18 2h3l-3 4h3"];
 var mergePaths = ["M3 5h4l5 7h9", "M3 19h4l5-7", "M17 8l4 4-4 4"];
+var windowPaths = ["M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M3 9h18"];
 var floppyPaths = ["M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z", "M17 21v-8H7v8", "M7 3v5h8"];
 
 function icon(paths) {
@@ -785,7 +1025,7 @@ function formatAgo(timestamp, always = false) {
   return { short: "now", long: relativeTime.format(0, "second") };
 }
 
-function accessedPill(timestamp, always = false) {
+function accessedPill(timestamp, always = false, verb = "Last used") {
   let ago = formatAgo(timestamp, always);
   if (!ago) {
     return;
@@ -793,7 +1033,7 @@ function accessedPill(timestamp, always = false) {
   let accessed = document.createElement("time");
   accessed.classList.add("tab-accessed");
   accessed.dateTime = new Date(timestamp).toISOString();
-  accessed.title = `Last used ${ago.long} (${new Date(timestamp).toLocaleString()})`;
+  accessed.title = `${verb} ${ago.long} (${new Date(timestamp).toLocaleString()})`;
   accessed.textContent = ago.short;
   return accessed;
 }
@@ -821,7 +1061,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {}
     updateTabsLists();
   });
-  document.getElementById("filter").addEventListener("input", applyFilter);
+  document.getElementById("filter").addEventListener("input", () => {
+    applyFilter();
+    openForFilter();
+  });
   for (let box of document.querySelectorAll("[data-hides]")) {
     try {
       let saved = localStorage.getItem(box.id);
@@ -838,11 +1081,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   updateTabsLists();
   renderSaved();
+  renderRecentlyClosed();
 });
+
+browser.sessions.onChanged.addListener(renderRecentlyClosed);
 
 browser.storage.onChanged.addListener((changes) => {
   if (changes.stored) {
     renderSaved();
+  }
+  // The log can land after Firefox reports the close.
+  if (changes.closedContainers) {
+    renderRecentlyClosed();
   }
 });
 
@@ -864,6 +1114,7 @@ document.addEventListener("keydown", (e) => {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState == "visible") {
     updateTabsLists();
+    renderRecentlyClosed();
   }
 });
 
@@ -875,6 +1126,8 @@ browser.tabs.onRemoved.addListener((tabId) => {
 });
 
 browser.tabs.onCreated.addListener(scheduleRender);
+// Moving a tab to another window changes the window count.
+browser.tabs.onAttached.addListener(scheduleRender);
 
 // Firefox can't discard the tab showing in each window.
 browser.tabs.onActivated.addListener(({ tabId, previousTabId }) => {
